@@ -17,8 +17,9 @@ const DEFAULT_CONFIG: AppConfig = {
     "beach combo": "beach standing,beach sitting",
     "standing combo": "beach standing,pool standing",
   },
-  "aspectRatio": "9:16",
-  "imageSize": "1k"
+  "aspectRatio": "4:5",
+  //'1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', or '21:9'
+  "imageSize": "2K"
 };
 
 const App: React.FC = () => {

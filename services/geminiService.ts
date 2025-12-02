@@ -6,8 +6,8 @@ export const generateImageFromReference = async (
   referenceImageBase64: string,
   mimeType: string,
   promptText: string,
-  aspectRatio: string = "1:1",
-  imageSize: string = "1K"
+  aspectRatio: string = "4:5",
+  imageSize: string = "2K"
 ): Promise<{ imageUrl: string; usage: number }> => {
   try {
     // We must instantiate a new client for each request to ensure we pick up the latest API key
