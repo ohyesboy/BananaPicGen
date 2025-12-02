@@ -5,7 +5,9 @@ const MODEL_NAME = 'gemini-3-pro-image-preview'; // Nano banana pro
 export const generateImageFromReference = async (
   referenceImageBase64: string,
   mimeType: string,
-  promptText: string
+  promptText: string,
+  aspectRatio: string = "1:1",
+  imageSize: string = "1K"
 ): Promise<string> => {
   try {
     // We must instantiate a new client for each request to ensure we pick up the latest API key
@@ -31,8 +33,8 @@ export const generateImageFromReference = async (
       // Assuming we want standard square aspect ratio unless specified otherwise, but strict instructions say default 1:1
       config: {
          imageConfig: {
-           aspectRatio: "1:1",
-           imageSize: "1K" // Defaulting to 1K for speed/stability
+           aspectRatio: aspectRatio,
+           imageSize: imageSize // Defaulting to 1K for speed/stability
          }
       }
     });

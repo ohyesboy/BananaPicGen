@@ -13,9 +13,12 @@ const DEFAULT_CONFIG: AppConfig = {
     "pool standing": "generate a picture using the picture provided, a women standing by a infinity pool carring the bag."
   },
   combos: {
+    "test": "beach standing",
     "beach combo": "beach standing,beach sitting",
     "standing combo": "beach standing,pool standing",
-  }
+  },
+  "aspectRatio": "9:16",
+  "imageSize": "1k"
 };
 
 const App: React.FC = () => {
@@ -168,7 +171,13 @@ const App: React.FC = () => {
 
       try {
         const base64 = await fileToBase64(file);
-        const imageUrl = await generateImageFromReference(base64, file.type, promptText);
+        const imageUrl = await generateImageFromReference(
+          base64, 
+          file.type, 
+          promptText,
+          config.aspectRatio,
+          config.imageSize
+        );
         
         updateResultStatus(i, 'completed', imageUrl);
         log(`Success: ${file.name} (${task.promptName}) generated.`, "success");
