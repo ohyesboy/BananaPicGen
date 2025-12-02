@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppConfig } from '../types';
 import { Settings, Save, RotateCcw } from 'lucide-react';
+import defaultConfig from '../config.json';
 
 interface ConfigEditorProps {
   config: AppConfig;
@@ -30,8 +31,10 @@ export const ConfigEditor: React.FC<ConfigEditorProps> = ({ config, onSave }) =>
   };
 
   const handleReset = () => {
-    setJsonText(JSON.stringify(config, null, 2));
+    const defaults = defaultConfig as AppConfig;
+    setJsonText(JSON.stringify(defaults, null, 2));
     setError(null);
+    onSave(defaults);
   };
 
   return (
