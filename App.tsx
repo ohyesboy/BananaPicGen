@@ -54,7 +54,8 @@ const App: React.FC = () => {
     } else {
       // Fallback for local development
       // If process.env.API_KEY is available (set in .env), we treat it as having a key
-      if (process.env.API_KEY) {
+      const envKey = window.env?.API_KEY || process.env.API_KEY;
+      if (envKey) {
         setHasKey(true);
         log("Using environment API Key (Local Mode).", "info");
       } else {

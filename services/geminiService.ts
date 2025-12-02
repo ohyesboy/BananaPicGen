@@ -12,7 +12,8 @@ export const generateImageFromReference = async (
   try {
     // We must instantiate a new client for each request to ensure we pick up the latest API key
     // if the user re-selected it via window.aistudio.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = window.env?.API_KEY || process.env.API_KEY;
+    const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
       model: MODEL_NAME,

@@ -18,3 +18,13 @@ View your app in AI Studio: https://ai.studio/apps/drive/1n5ocqNg69Alr2WIks41ZZc
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Run from docker
+
+```
+# Build the image (no API key needed here)
+docker build -t banana-pic-gen .
+
+# Run the container with the API key
+docker run -e GEMINI_API_KEY=your_actual_api_key -p 8080:80 banana-pic-gen
+```

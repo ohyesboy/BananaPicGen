@@ -27,5 +27,8 @@ declare global {
 
   interface Window {
     aistudio?: AIStudio;
+    env?: {
+      API_KEY?: string;
+    };
   }
 }
