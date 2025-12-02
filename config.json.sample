@@ -9,7 +9,5 @@
     "test": "beach standing",
     "beach combo": "beach standing,beach sitting",
     "standing combo": "beach standing,pool standing"
-  },
-  "aspectRatio": "4:5",
-  "imageSize": "2K"
+  }
 }

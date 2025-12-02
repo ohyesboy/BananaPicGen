@@ -21,6 +21,8 @@ const App: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [tokenUsage, setTokenUsage] = useState({ total: 0, input: 0, output: 0 });
+  const [selectedAspectRatio, setSelectedAspectRatio] = useState("4:5");
+  const [selectedImageSize, setSelectedImageSize] = useState("2K");
 
   // Initialization
   useEffect(() => {
@@ -162,8 +164,8 @@ const App: React.FC = () => {
           base64, 
           file.type, 
           promptText,
-          config.aspectRatio,
-          config.imageSize
+          selectedAspectRatio,
+          selectedImageSize
         );
         
         setTokenUsage(prev => ({
@@ -315,6 +317,36 @@ const App: React.FC = () => {
                <option value="" disabled>-- Select a prompt combo --</option>
                {Object.keys(config.combos).map(key => (
                  <option key={key} value={key}>{key}</option>
+               ))}
+             </select>
+           </div>
+
+           {/* Aspect Ratio Selector */}
+           <div className="w-32">
+             <label className="block text-xs font-mono text-slate-500 mb-2 uppercase">Aspect Ratio</label>
+             <select 
+                className="w-full bg-slate-950 text-slate-200 border border-slate-700 rounded p-2.5 focus:border-amber-500 focus:outline-none"
+                value={selectedAspectRatio}
+                onChange={(e) => setSelectedAspectRatio(e.target.value)}
+                disabled={isProcessing}
+             >
+               {['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'].map(ratio => (
+                 <option key={ratio} value={ratio}>{ratio}</option>
+               ))}
+             </select>
+           </div>
+
+           {/* Image Size Selector */}
+           <div className="w-32">
+             <label className="block text-xs font-mono text-slate-500 mb-2 uppercase">Image Size</label>
+             <select 
+                className="w-full bg-slate-950 text-slate-200 border border-slate-700 rounded p-2.5 focus:border-amber-500 focus:outline-none"
+                value={selectedImageSize}
+                onChange={(e) => setSelectedImageSize(e.target.value)}
+                disabled={isProcessing}
+             >
+               {['1K', '2K', '4K'].map(size => (
+                 <option key={size} value={size}>{size}</option>
                ))}
              </select>
            </div>
