@@ -8,7 +8,7 @@ export const generateImageFromReference = async (
   promptText: string,
   aspectRatio: string = "4:5",
   imageSize: string = "2K"
-): Promise<{ imageUrl: string; usage: number }> => {
+): Promise<{ imageUrl: string; usage: { total: number; input: number; output: number } }> => {
   try {
     // We must instantiate a new client for each request to ensure we pick up the latest API key
     // if the user re-selected it via window.aistudio.
@@ -34,7 +34,7 @@ export const generateImageFromReference = async (
       config: {
          imageConfig: {
            aspectRatio: aspectRatio,
-           imageSize: imageSize // Defaulting to 1K for speed/stability
+           imageSize: imageSize.toUpperCase() // Ensure uppercase for API compatibility (1K, 2K)
          }
       }
     });
@@ -46,7 +46,11 @@ export const generateImageFromReference = async (
         for (const part of parts) {
           if (part.inlineData && part.inlineData.data) {
              const imageUrl = `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
-             const usage = response.usageMetadata?.totalTokenCount || 0;
+             const usage = {
+               total: response.usageMetadata?.totalTokenCount || 0,
+               input: (response.usageMetadata?.promptTokenCount || 0)+(response.usageMetadata?.toolUsePromptTokenCount || 0),
+               output: (response.usageMetadata?.candidatesTokenCount || 0)+(response.usageMetadata?.thoughtsTokenCount || 0),
+             };
              return { imageUrl, usage };
           }
         }

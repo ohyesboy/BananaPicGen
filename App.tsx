@@ -34,7 +34,7 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
-  const [totalTokenUsage, setTotalTokenUsage] = useState(0);
+  const [tokenUsage, setTokenUsage] = useState({ total: 0, input: 0, output: 0 });
 
   // Initialization
   useEffect(() => {
@@ -180,9 +180,13 @@ const App: React.FC = () => {
           config.imageSize
         );
         
-        setTotalTokenUsage(prev => prev + usage);
+        setTokenUsage(prev => ({
+          total: prev.total + usage.total,
+          input: prev.input + usage.input,
+          output: prev.output + usage.output
+        }));
         updateResultStatus(i, 'completed', imageUrl);
-        log(`Success: ${file.name} (${task.promptName}) generated. Tokens: ${usage}`, "success");
+        log(`Success: ${file.name} (${task.promptName}) generated. Tokens: ${usage.total} (In: ${usage.input}, Out: ${usage.output})`, "success");
       } catch (err: any) {
         updateResultStatus(i, 'failed', undefined, err.message);
         log(`Failed: ${file.name} (${task.promptName}) - ${err.message}`, "error");
@@ -272,7 +276,6 @@ const App: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      {/* Main Content */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Header */}
         <header className="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-6 shrink-0">
@@ -280,9 +283,19 @@ const App: React.FC = () => {
              <button onClick={() => setShowConfig(true)} className="md:hidden text-slate-400 hover:text-white">
                 <ImageIcon />
              </button>
-             <div className="flex flex-col">
-                <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Token Usage</span>
-                <span className="text-sm font-mono text-amber-400">{totalTokenUsage.toLocaleString()}</span>
+             <div className="flex gap-4">
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Input</span>
+                  <span className="text-sm font-mono text-blue-400">{tokenUsage.input.toLocaleString()}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Output</span>
+                  <span className="text-sm font-mono text-green-400">{tokenUsage.output.toLocaleString()}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Total</span>
+                  <span className="text-sm font-mono text-amber-400">{tokenUsage.total.toLocaleString()}</span>
+                </div>
              </div>
           </div>
           
