@@ -4,23 +4,9 @@ import { Terminal } from './components/Terminal';
 import { ConfigEditor } from './components/ConfigEditor';
 import { generateImageFromReference, fileToBase64 } from './services/geminiService';
 import { FolderOpen, Play, Download, Image as ImageIcon, CheckCircle, AlertCircle, Loader2, Key, Trash2 } from 'lucide-react';
+import defaultConfig from './config.json';
 
-const DEFAULT_CONFIG: AppConfig = {
-  input_file_pattern: "\\d+\\.jpe?g",
-  prompts: {
-    "beach standing": "generate a picture using the picture provided, a women standing at Carribean beach carring the bag.",
-    "beach sitting": "generate a picture using the picture provided, a women sitting at Carribean beach carring the bag.",
-    "pool standing": "generate a picture using the picture provided, a women standing by a infinity pool carring the bag."
-  },
-  combos: {
-    "test": "beach standing",
-    "beach combo": "beach standing,beach sitting",
-    "standing combo": "beach standing,pool standing",
-  },
-  "aspectRatio": "4:5",
-  //'1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', or '21:9'
-  "imageSize": "2K"
-};
+const DEFAULT_CONFIG: AppConfig = defaultConfig;
 
 const App: React.FC = () => {
   // Config State
