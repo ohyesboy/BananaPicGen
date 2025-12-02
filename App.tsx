@@ -7,15 +7,30 @@ import { FolderOpen, Play, Download, Image as ImageIcon, CheckCircle, AlertCircl
 import defaultConfig from './config.json';
 
 const DEFAULT_CONFIG: AppConfig = defaultConfig;
+const STORAGE_KEY = 'banana_pic_gen_config';
 
 const App: React.FC = () => {
   // Config State
-  const [config, setConfig] = useState<AppConfig>(DEFAULT_CONFIG);
+  const [config, setConfig] = useState<AppConfig>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to parse saved config", e);
+        return DEFAULT_CONFIG;
+      }
+    }
+    return DEFAULT_CONFIG;
+  });
   
   // App State
   const [hasKey, setHasKey] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [selectedCombo, setSelectedCombo] = useState<string | null>(null);
+  const [selectedCombo, setSelectedCombo] = useState<string | null>(() => {
+    const keys = Object.keys(config.combos);
+    return keys.length > 0 ? keys[0] : null;
+  });
   const [results, setResults] = useState<ProcessingResult[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -237,11 +252,11 @@ const App: React.FC = () => {
             config={config} 
             onSave={(newConf) => {
               setConfig(newConf);
-              log("Configuration updated.", "success");
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(newConf));
+              log("Configuration updated and saved to local storage.", "success");
             }} 
           />
         </div>
-
         <div className="p-4 bg-slate-900 border-t border-slate-800 space-y-4">
            {/* API Key Status */}
            <div className="flex items-center justify-between bg-slate-800 p-3 rounded-lg">
