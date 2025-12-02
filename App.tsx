@@ -3,7 +3,7 @@ import { AppConfig, LogEntry, ProcessingResult } from './types';
 import { Terminal } from './components/Terminal';
 import { ConfigEditor } from './components/ConfigEditor';
 import { generateImageFromReference, fileToBase64 } from './services/geminiService';
-import { FolderOpen, Play, Download, Image as ImageIcon, CheckCircle, AlertCircle, Loader2, Key } from 'lucide-react';
+import { FolderOpen, Play, Download, Image as ImageIcon, CheckCircle, AlertCircle, Loader2, Key, Trash2 } from 'lucide-react';
 
 const DEFAULT_CONFIG: AppConfig = {
   input_file_pattern: "\\d+\\.jpe?g",
@@ -210,6 +210,11 @@ const App: React.FC = () => {
     });
   };
 
+  const handleClear = () => {
+    setResults([]);
+    log("Results cleared.", "info");
+  };
+
   // Helper to handle download
   const handleDownload = (res: ProcessingResult) => {
     if (!res.imageUrl) return;
@@ -322,6 +327,20 @@ const App: React.FC = () => {
            >
              {isProcessing ? <Loader2 className="animate-spin" size={20} /> : <Play size={20} />}
              RUN BATCH
+           </button>
+
+           {/* Clear Button */}
+           <button 
+             onClick={handleClear}
+             disabled={isProcessing || results.length === 0}
+             className={`px-6 py-2.5 rounded font-bold flex items-center gap-2 transition ${
+               isProcessing || results.length === 0
+               ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+               : 'bg-slate-700 hover:bg-red-600 text-white'
+             }`}
+           >
+             <Trash2 size={20} />
+             CLEAR
            </button>
         </div>
 
