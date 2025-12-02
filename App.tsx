@@ -33,6 +33,7 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
+  const [totalTokenUsage, setTotalTokenUsage] = useState(0);
 
   // Initialization
   useEffect(() => {
@@ -168,10 +169,9 @@ const App: React.FC = () => {
       // Update status to processing
       updateResultStatus(i, 'processing');
       log(`Processing [${i+1}/${tasks.length}]: ${file.name} -> ${task.promptName}`, "info");
-
       try {
         const base64 = await fileToBase64(file);
-        const imageUrl = await generateImageFromReference(
+        const { imageUrl, usage } = await generateImageFromReference(
           base64, 
           file.type, 
           promptText,
@@ -179,8 +179,9 @@ const App: React.FC = () => {
           config.imageSize
         );
         
+        setTotalTokenUsage(prev => prev + usage);
         updateResultStatus(i, 'completed', imageUrl);
-        log(`Success: ${file.name} (${task.promptName}) generated.`, "success");
+        log(`Success: ${file.name} (${task.promptName}) generated. Tokens: ${usage}`, "success");
       } catch (err: any) {
         updateResultStatus(i, 'failed', undefined, err.message);
         log(`Failed: ${file.name} (${task.promptName}) - ${err.message}`, "error");
@@ -270,6 +271,7 @@ const App: React.FC = () => {
       </div>
 
       {/* Main Content */}
+      {/* Main Content */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Header */}
         <header className="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-6 shrink-0">
@@ -277,11 +279,13 @@ const App: React.FC = () => {
              <button onClick={() => setShowConfig(true)} className="md:hidden text-slate-400 hover:text-white">
                 <ImageIcon />
              </button>
-             <h2 className="text-lg font-medium text-slate-200">Batch Processing Console</h2>
+             <div className="flex flex-col">
+                <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Token Usage</span>
+                <span className="text-sm font-mono text-amber-400">{totalTokenUsage.toLocaleString()}</span>
+             </div>
           </div>
           
           <div className="flex items-center gap-4">
-             {/* File Input */}
              <div className="relative">
                 <input 
                   type="file" 
