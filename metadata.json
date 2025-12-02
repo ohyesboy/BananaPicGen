@@ -1,0 +1,5 @@
+{
+  "name": "Banana Pro Batch Generator",
+  "description": "A web-based batch image processing tool using Gemini 3 Pro (Nano Banana Pro). It replicates console app logic to process images with configurable prompts and regex filtering.",
+  "requestFramePermissions": []
+}
