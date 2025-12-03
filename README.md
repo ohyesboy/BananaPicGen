@@ -10,6 +10,8 @@
 
 * Simple authorization (if email is in list)
 
+* Shows token used and cost respectively under Nano Banana 2 and 3 
+
   
 
 ![screenshot](screenshot.png)

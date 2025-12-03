@@ -5,7 +5,7 @@ import { AppConfig, LogEntry, ProcessingResult } from './types';
 import { Terminal } from './components/Terminal';
 import { ConfigEditor } from './components/ConfigEditor';
 import { generateImageFromReference, fileToBase64 } from './services/geminiService';
-import { FolderOpen, Play, Download, Image as ImageIcon, CheckCircle, AlertCircle, Loader2, Key, Trash2, ChevronDown } from 'lucide-react';
+import { FolderOpen, Play, Download, Image as ImageIcon, CheckCircle, AlertCircle, Loader2, Key, Trash2, ChevronDown, X } from 'lucide-react';
 import defaultConfig from './config.json';
 
 const DEFAULT_CONFIG: AppConfig = defaultConfig;
@@ -78,6 +78,9 @@ const App: React.FC = () => {
   // PWA Install State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isIOS, setIsIOS] = useState(false);
+
+  // Lightbox State
+  const [lightboxImage, setLightboxImage] = useState<ProcessingResult | null>(null);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -310,6 +313,45 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col md:flex-row">
+      {/* Lightbox Modal */}
+      {lightboxImage && lightboxImage.imageUrl && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-4"
+          onClick={() => setLightboxImage(null)}
+        >
+          {/* Close Button */}
+          <button 
+            className="absolute top-4 right-4 text-white/80 hover:text-white p-2 z-10"
+            onClick={() => setLightboxImage(null)}
+          >
+            <X size={32} />
+          </button>
+          
+          {/* Image */}
+          <div className="flex-1 flex items-center justify-center w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <img 
+              src={lightboxImage.imageUrl} 
+              alt="Generated" 
+              className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-2xl"
+            />
+          </div>
+          
+          {/* Info & Download */}
+          <div className="w-full max-w-md mt-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="text-center">
+              <div className="text-slate-400 text-sm">{lightboxImage.originalFileName}</div>
+              <div className="text-white font-bold">{lightboxImage.promptName}</div>
+            </div>
+            <button
+              onClick={() => handleDownload(lightboxImage)}
+              className="w-full bg-green-600 hover:bg-green-500 text-white py-4 px-6 rounded-xl font-bold text-lg flex items-center justify-center gap-3 shadow-lg active:scale-95 transition-transform"
+            >
+              <Download size={24} />
+              Download Image
+            </button>
+          </div>
+        </div>
+      )}
       {/* Sidebar / Config Panel */}
       <div className={`fixed inset-y-0 left-0 z-50 w-full md:w-96 bg-slate-950 border-r border-slate-800 transform transition-transform duration-300 ${showConfig ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:static flex flex-col`}>
         <div className="p-4 border-b border-slate-800 flex justify-between items-center">
@@ -569,19 +611,21 @@ const App: React.FC = () => {
                        {res.status === 'pending' && <span className="text-slate-700 text-xs">Waiting...</span>}
                        {res.status === 'failed' && <AlertCircle className="text-red-500" size={32} />}
                        {res.status === 'completed' && res.imageUrl && (
-                         <img src={res.imageUrl} alt="Generated" className="w-full h-full object-cover" />
+                         <img 
+                           src={res.imageUrl} 
+                           alt="Generated" 
+                           className="w-full h-full object-cover cursor-pointer" 
+                           onClick={() => setLightboxImage(res)}
+                         />
                        )}
                        
-                       {/* Overlay Actions */}
+                       {/* Overlay Actions (desktop hover) */}
                        {res.status === 'completed' && (
-                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                           <button 
-                             onClick={() => handleDownload(res)}
-                             className="bg-white text-black p-2 rounded-full hover:bg-slate-200 transition"
-                             title="Download"
-                           >
-                             <Download size={20} />
-                           </button>
+                         <div 
+                           className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center cursor-pointer"
+                           onClick={() => setLightboxImage(res)}
+                         >
+                           <span className="text-white text-xs">Tap to view</span>
                          </div>
                        )}
                     </div>
