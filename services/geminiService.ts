@@ -8,7 +8,8 @@ export const generateImageFromReference = async (
   promptText: string,
   aspectRatio: string = "4:5",
   imageSize: string = "2K",
-  modelName: string = 'gemini-2.5-flash-image'
+  modelName: string = 'gemini-2.5-flash-image',
+  temperature: number = 1.0
 ): Promise<{ imageUrl: string; usage: { total: number; input: number; output_image: number; output_text: number } }> => {
   try {
     // We must instantiate a new client for each request to ensure we pick up the latest API key
@@ -33,6 +34,7 @@ export const generateImageFromReference = async (
       },
       // gemini-2.5-flash-image configuration
       config: {
+        temperature: temperature,
         imageConfig: {
           aspectRatio: aspectRatio,
           imageSize: modelName === 'gemini-2.5-flash-image' ? undefined : imageSize.toUpperCase() 

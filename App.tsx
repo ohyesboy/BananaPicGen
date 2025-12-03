@@ -15,6 +15,7 @@ const STORAGE_KEY_ASPECT_RATIO = 'banana_pic_gen_aspect_ratio';
 const STORAGE_KEY_IMAGE_SIZE = 'banana_pic_gen_image_size';
 const STORAGE_KEY_MODEL = 'banana_pic_gen_model';
 const STORAGE_KEY_TOKEN_USAGE = 'banana_pic_gen_token_usage';
+const STORAGE_KEY_TEMPERATURE = 'banana_pic_gen_temperature';
 
 const MODEL_OPTIONS = [
   { label: "Nano Banana 3 Pro", value: "gemini-3-pro-image-preview" },
@@ -74,6 +75,10 @@ const App: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState(() => {
     return localStorage.getItem(STORAGE_KEY_MODEL) || "gemini-2.5-flash-image";
   });
+  const [temperature, setTemperature] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEY_TEMPERATURE);
+    return saved ? parseFloat(saved) : 1.0;
+  });
 
   // PWA Install State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -118,6 +123,10 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_MODEL, selectedModel);
   }, [selectedModel]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_TEMPERATURE, temperature.toString());
+  }, [temperature]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_TOKEN_USAGE, JSON.stringify(tokenUsage));
@@ -249,7 +258,8 @@ const App: React.FC = () => {
           promptText,
           selectedAspectRatio,
           selectedImageSize,
-          selectedModel
+          selectedModel,
+          temperature
         );
         
         setTokenUsage(prev => ({
@@ -557,6 +567,25 @@ const App: React.FC = () => {
                  <option key={size} value={size}>{size}</option>
                ))}
              </select>
+           </div>
+
+           {/* Temperature Slider */}
+           <div className="w-40">
+             <label className="block text-xs font-mono text-slate-500 mb-2 uppercase">Temperature: {temperature.toFixed(1)}</label>
+             <input
+               type="range"
+               min="0"
+               max="2"
+               step="0.1"
+               value={temperature}
+               onChange={(e) => setTemperature(parseFloat(e.target.value))}
+               disabled={isProcessing}
+               className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
+             />
+             <div className="flex justify-between text-[10px] text-slate-600 mt-1">
+               <span>Precise</span>
+               <span>Creative</span>
+             </div>
            </div>
            
            {/* Run Button */}
