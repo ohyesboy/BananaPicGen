@@ -11,17 +11,22 @@ const AuthWrapper: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [accessList, setAccessList] = useState<string[]>([]);
-  const [accessListLoading, setAccessListLoading] = useState(false);
+  const [accessListLoading, setAccessListLoading] = useState(true); // Start true to prevent flash
 
   // Listen for auth state changes
   useEffect(() => {
     if (!auth) {
       setAuthLoading(false);
+      setAccessListLoading(false);
       return;
     }
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setAuthLoading(false);
+      // If no user, we don't need to load access list
+      if (!currentUser) {
+        setAccessListLoading(false);
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -34,6 +39,7 @@ const AuthWrapper: React.FC = () => {
         .then((list) => {
           console.log("Access list fetched:", list);
           console.log("User email:", user.email);
+          console.log("Is in list:", list.includes(user.email || ''));
           setAccessList(list);
         })
         .catch((error) => {
@@ -42,9 +48,6 @@ const AuthWrapper: React.FC = () => {
         .finally(() => {
           setAccessListLoading(false);
         });
-    } else {
-      setAccessList([]);
-      setAccessListLoading(false);
     }
   }, [user]);
 
