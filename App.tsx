@@ -160,15 +160,6 @@ const App: React.FC = () => {
       const files = Array.from(e.target.files) as File[];
       setSelectedFiles(files);
       log(`Selected ${files.length} file(s) from path.`, 'info');
-      
-      // Preview regex match
-      try {
-        const regex = new RegExp(config.input_file_pattern, 'i');
-        const matches = files.filter(f => regex.test(f.name));
-        log(`Pattern "${config.input_file_pattern}" matches ${matches.length} of ${files.length} files.`, matches.length > 0 ? 'success' : 'warning');
-      } catch (err) {
-        log(`Invalid Regex Pattern: ${config.input_file_pattern}`, 'error');
-      }
     }
   };
 
@@ -189,24 +180,16 @@ const App: React.FC = () => {
     setIsProcessing(true);
     setResults([]); // Clear previous results
     
-    // 1. Filter Files
-    let filesToProcess: File[] = [];
-    try {
-      const regex = new RegExp(config.input_file_pattern, 'i');
-      filesToProcess = selectedFiles.filter(f => regex.test(f.name));
-    } catch (err) {
-      log("Regex Error. Aborting.", "error");
-      setIsProcessing(false);
-      return;
-    }
+    // 1. Use all selected files
+    const filesToProcess = selectedFiles;
 
     if (filesToProcess.length === 0) {
-      log("No files matched the configuration pattern.", "warning");
+      log("No files selected.", "warning");
       setIsProcessing(false);
       return;
     }
 
-    log(`Starting batch for ${filesToProcess.length} matched files...`, "info");
+    log(`Starting batch for ${filesToProcess.length} files...`, "info");
 
     // 2. Get Prompts from Combo
     const comboString = config.combos[selectedCombo];

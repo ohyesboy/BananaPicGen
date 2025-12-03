@@ -1,5 +1,4 @@
 export interface AppConfig {
-  input_file_pattern: string;
   prompts: Record<string, string>;
   combos: Record<string, string>;
 }

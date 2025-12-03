@@ -20,8 +20,8 @@ export const ConfigEditor: React.FC<ConfigEditorProps> = ({ config, onSave }) =>
     try {
       const parsed = JSON.parse(jsonText);
       // Basic validation
-      if (!parsed.prompts || !parsed.combos || !parsed.input_file_pattern) {
-        throw new Error("Missing required config keys (prompts, combos, input_file_pattern)");
+      if (!parsed.prompts || !parsed.combos) {
+        throw new Error("Missing required config keys (prompts, combos)");
       }
       setError(null);
       onSave(parsed);
