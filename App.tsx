@@ -8,6 +8,9 @@ import defaultConfig from './config.json';
 
 const DEFAULT_CONFIG: AppConfig = defaultConfig;
 const STORAGE_KEY = 'banana_pic_gen_config';
+const STORAGE_KEY_COMBO = 'banana_pic_gen_combo';
+const STORAGE_KEY_ASPECT_RATIO = 'banana_pic_gen_aspect_ratio';
+const STORAGE_KEY_IMAGE_SIZE = 'banana_pic_gen_image_size';
 
 const App: React.FC = () => {
   // Config State
@@ -28,6 +31,10 @@ const App: React.FC = () => {
   const [hasKey, setHasKey] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [selectedCombo, setSelectedCombo] = useState<string | null>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY_COMBO);
+    if (saved && config.combos[saved]) {
+      return saved;
+    }
     const keys = Object.keys(config.combos);
     return keys.length > 0 ? keys[0] : null;
   });
@@ -36,8 +43,27 @@ const App: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [tokenUsage, setTokenUsage] = useState({ total: 0, input: 0, output: 0 });
-  const [selectedAspectRatio, setSelectedAspectRatio] = useState("4:5");
-  const [selectedImageSize, setSelectedImageSize] = useState("2K");
+  const [selectedAspectRatio, setSelectedAspectRatio] = useState(() => {
+    return localStorage.getItem(STORAGE_KEY_ASPECT_RATIO) || "4:5";
+  });
+  const [selectedImageSize, setSelectedImageSize] = useState(() => {
+    return localStorage.getItem(STORAGE_KEY_IMAGE_SIZE) || "2K";
+  });
+
+  // Save preferences when they change
+  useEffect(() => {
+    if (selectedCombo) {
+      localStorage.setItem(STORAGE_KEY_COMBO, selectedCombo);
+    }
+  }, [selectedCombo]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_ASPECT_RATIO, selectedAspectRatio);
+  }, [selectedAspectRatio]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_IMAGE_SIZE, selectedImageSize);
+  }, [selectedImageSize]);
 
   // Initialization
   useEffect(() => {
