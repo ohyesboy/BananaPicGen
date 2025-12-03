@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Banana body shaped like a C -->
+  <path d="M85,25 C40,10 15,35 15,65 C15,85 35,95 65,90 C50,85 35,75 35,60 C35,40 60,30 85,25 Z" fill="#FFE135" stroke="#DAA520" stroke-width="2" stroke-linejoin="round"/>
+  <!-- Stem -->
+  <path d="M85,25 L90,20" stroke="#5D4037" stroke-width="4" stroke-linecap="round"/>
+  <!-- Tip -->
+  <path d="M65,90 L68,92" stroke="#5D4037" stroke-width="2" stroke-linecap="round"/>
+</svg>

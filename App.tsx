@@ -70,6 +70,27 @@ const App: React.FC = () => {
     return localStorage.getItem(STORAGE_KEY_MODEL) || "gemini-2.5-flash-image";
   });
 
+  // PWA Install State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
+
   // Save preferences when they change
   useEffect(() => {
     if (selectedCombo) {
@@ -415,6 +436,15 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-4">
+             {deferredPrompt && (
+               <button 
+                 onClick={handleInstallClick}
+                 className="hidden md:flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-md transition border border-amber-500 shadow-lg shadow-amber-900/20"
+               >
+                 <Download size={18} />
+                 <span>Install App</span>
+               </button>
+             )}
              <div className="relative">
                 <input 
                   type="file" 
