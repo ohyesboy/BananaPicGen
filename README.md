@@ -1,12 +1,68 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+## Features
 
-# Run and deploy your AI Studio app
+* Support Nano Banana 2 and 3 
 
-This contains everything you need to run your app locally.
+* Select 1 input picture as reference
 
-View your app in AI Studio: https://ai.studio/apps/drive/1n5ocqNg69Alr2WIks41ZZcMBHWkxq4kf
+* Define prompts in json, and generate a combo of them
+
+* Google (firebase) authentication
+
+* Simple authorization (if email is in list)
+
+  
+
+![screenshot](screenshot.png)
+
+
+
+## Setup Firebase
+
+### Firebase project config
+
+1. **Go to the [Firebase Console](vscode-file://vscode-app/Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/code/electron-browser/workbench/workbench.html)**.
+
+2. Click **"Add project"** and create a new project (e.g., "BananaPicGen").
+
+3. Once created, click the **+Add App** --> **Web icon (`</>`)** to register your app.
+
+4. Copy the `firebaseConfig` object provided (it looks like `const firebaseConfig = { ... }`). Make the json in 1 line.
+
+5. For local, put under .env.local. For online deployment, add it its environment vars
+
+   
+
+### Enable Google authentication in firebase
+
+* Enable Google in **Authentication -> Sign-in Method**
+* Add Domain (localhost is by default there) in **Authentication -> Settings -> Authorized domains**
+
+
+
+### Firebase Database for user list
+
+* Start collection **config**
+
+* Add document **access**
+
+* Add **array ** field "allowedEmails" with your allowed emails
+
+* Allow read access in Rules
+  ```
+  rules_version = '2';
+  
+  service cloud.firestore {
+    match /databases/{database}/documents {
+      match /{document=**} {
+        allow read: if request.auth != null;
+      }
+    }
+  }
+  ```
+
+  
+
+
 
 ## Run Locally
 
@@ -18,6 +74,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/1n5ocqNg69Alr2WIks41ZZc
 2. Set the `GEMINI_API_KEY` and `FIREBASE_CONFIG` in [.env.local](.env.local)
 3. Run the app:
    `npm run dev`
+
+
 
 ## Run from docker
 
