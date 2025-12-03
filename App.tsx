@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { User } from 'firebase/auth';
+import { auth, logout } from './services/firebase';
 import { AppConfig, LogEntry, ProcessingResult } from './types';
 import { Terminal } from './components/Terminal';
 import { ConfigEditor } from './components/ConfigEditor';
@@ -20,6 +22,9 @@ const MODEL_OPTIONS = [
 ];
 
 const App: React.FC = () => {
+  // Get user from auth (already authenticated via AuthWrapper)
+  const user = auth?.currentUser;
+
   // Config State
   const [config, setConfig] = useState<AppConfig>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -72,6 +77,7 @@ const App: React.FC = () => {
 
   // PWA Install State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -349,6 +355,25 @@ const App: React.FC = () => {
                </button>
              )}
              {hasKey && <span className="text-xs text-green-400 font-mono">ACTIVE</span>}
+           </div>
+
+           {/* User Auth Status */}
+           <div className="flex items-center justify-between bg-slate-800 p-3 rounded-lg">
+             <div className="flex items-center gap-2 overflow-hidden">
+               {user?.photoURL ? (
+                 <img src={user.photoURL} alt="User" className="w-6 h-6 rounded-full" referrerPolicy="no-referrer" />
+               ) : (
+                 <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-500">
+                    <span className="text-xs font-bold">{user?.displayName?.[0] || '?'}</span>
+                 </div>
+               )}
+               <div className="flex flex-col min-w-0">
+                 <span className="text-xs font-medium text-slate-300 truncate max-w-[100px]">{user?.displayName || 'User'}</span>
+               </div>
+             </div>
+             <button onClick={logout} className="text-xs bg-slate-700 hover:bg-red-600 text-white px-2 py-1 rounded">
+               Logout
+             </button>
            </div>
 
            <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="block text-xs text-slate-500 text-center hover:text-slate-400">

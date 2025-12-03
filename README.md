@@ -15,7 +15,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1n5ocqNg69Alr2WIks41ZZc
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Set the `GEMINI_API_KEY` and `FIREBASE_CONFIG` in [.env.local](.env.local)
 3. Run the app:
    `npm run dev`
 
@@ -26,5 +26,5 @@ View your app in AI Studio: https://ai.studio/apps/drive/1n5ocqNg69Alr2WIks41ZZc
 docker build -t banana-pic-gen .
 
 # Run the container with the API key
-docker run -e GEMINI_API_KEY=your_actual_api_key -p 8080:80 banana-pic-gen
+docker run -e GEMINI_API_KEY=your_actual_api_key -FIREBASE_CONFIG=firebase_json -p 8080:80 banana-pic-gen
 ```
