@@ -284,7 +284,8 @@ const App: React.FC = () => {
   const handleClear = () => {
     setResults([]);
     setTokenUsage({ total: 0, input: 0, output_image: 0, output_text: 0, images: 0 });
-    log("Results and token usage cleared.", "info");
+    const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+    setLogs([{ timestamp, message: "Workspace and Console cleared.", type: 'info' }]);
   };
 
   // Helper to handle download
@@ -437,7 +438,7 @@ const App: React.FC = () => {
                 />
                 <button className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-md transition border border-slate-700">
                   <FolderOpen size={18} />
-                  <span>{selectedFiles.length > 0 ? `${selectedFiles.length} files selected` : 'Select Files (Path)'}</span>
+                  <span>{selectedFiles.length > 0 ? `${selectedFiles.length} selected` : ''}</span>
                 </button>
              </div>
           </div>
@@ -502,21 +503,21 @@ const App: React.FC = () => {
              }`}
            >
              {isProcessing ? <Loader2 className="animate-spin" size={20} /> : <Play size={20} />}
-             RUN BATCH
+             RUN
            </button>
 
            {/* Clear Button */}
            <button 
              onClick={handleClear}
-             disabled={isProcessing || (results.length === 0 && tokenUsage.total === 0 && tokenUsage.images === 0)}
+             disabled={isProcessing}
              className={`px-6 py-2.5 rounded font-bold flex items-center gap-2 transition ${
-               isProcessing || (results.length === 0 && tokenUsage.total === 0 && tokenUsage.images === 0)
+               isProcessing 
                ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
                : 'bg-slate-700 hover:bg-red-600 text-white'
              }`}
            >
              <Trash2 size={20} />
-             CLEAR
+             
            </button>
         </div>
 
