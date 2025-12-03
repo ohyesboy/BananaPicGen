@@ -1,13 +1,14 @@
 import { GoogleGenAI } from "@google/genai";
 
-const MODEL_NAME = 'gemini-3-pro-image-preview'; // Nano banana pro
+const MODEL_NAME = 'gemini-2.5-flash-image';
 
 export const generateImageFromReference = async (
   referenceImageBase64: string,
   mimeType: string,
   promptText: string,
   aspectRatio: string = "4:5",
-  imageSize: string = "2K"
+  imageSize: string = "2K",
+  modelName: string = 'gemini-2.5-flash-image'
 ): Promise<{ imageUrl: string; usage: { total: number; input: number; output_image: number; output_text: number } }> => {
   try {
     // We must instantiate a new client for each request to ensure we pick up the latest API key
@@ -16,7 +17,7 @@ export const generateImageFromReference = async (
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-      model: MODEL_NAME,
+      model: modelName,
       contents: {
         parts: [
           {
@@ -30,13 +31,12 @@ export const generateImageFromReference = async (
           },
         ],
       },
-      // Nano banana pro / gemini-3-pro-image-preview specific configuration
-      // Assuming we want standard square aspect ratio unless specified otherwise, but strict instructions say default 1:1
+      // gemini-2.5-flash-image configuration
       config: {
-         imageConfig: {
-           aspectRatio: aspectRatio,
-           imageSize: imageSize.toUpperCase() // Ensure uppercase for API compatibility (1K, 2K)
-         }
+        imageConfig: {
+          aspectRatio: aspectRatio,
+          imageSize: modelName === 'gemini-2.5-flash-image' ? undefined : imageSize.toUpperCase() 
+        }
       }
     });
 

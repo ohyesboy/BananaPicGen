@@ -3,7 +3,7 @@ import { AppConfig, LogEntry, ProcessingResult } from './types';
 import { Terminal } from './components/Terminal';
 import { ConfigEditor } from './components/ConfigEditor';
 import { generateImageFromReference, fileToBase64 } from './services/geminiService';
-import { FolderOpen, Play, Download, Image as ImageIcon, CheckCircle, AlertCircle, Loader2, Key, Trash2 } from 'lucide-react';
+import { FolderOpen, Play, Download, Image as ImageIcon, CheckCircle, AlertCircle, Loader2, Key, Trash2, ChevronDown } from 'lucide-react';
 import defaultConfig from './config.json';
 
 const DEFAULT_CONFIG: AppConfig = defaultConfig;
@@ -11,6 +11,13 @@ const STORAGE_KEY = 'banana_pic_gen_config';
 const STORAGE_KEY_COMBO = 'banana_pic_gen_combo';
 const STORAGE_KEY_ASPECT_RATIO = 'banana_pic_gen_aspect_ratio';
 const STORAGE_KEY_IMAGE_SIZE = 'banana_pic_gen_image_size';
+const STORAGE_KEY_MODEL = 'banana_pic_gen_model';
+const STORAGE_KEY_TOKEN_USAGE = 'banana_pic_gen_token_usage';
+
+const MODEL_OPTIONS = [
+  { label: "Nano Banana 3 Pro", value: "gemini-3-pro-image-preview" },
+  { label: "Nano Banana 2", value: "gemini-2.5-flash-image" }
+];
 
 const App: React.FC = () => {
   // Config State
@@ -42,12 +49,25 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
-  const [tokenUsage, setTokenUsage] = useState({ total: 0, input: 0, output_image: 0, output_text: 0 });
+  const [tokenUsage, setTokenUsage] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEY_TOKEN_USAGE);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to parse saved token usage", e);
+      }
+    }
+    return { total: 0, input: 0, output_image: 0, output_text: 0, images: 0 };
+  });
   const [selectedAspectRatio, setSelectedAspectRatio] = useState(() => {
     return localStorage.getItem(STORAGE_KEY_ASPECT_RATIO) || "4:5";
   });
   const [selectedImageSize, setSelectedImageSize] = useState(() => {
     return localStorage.getItem(STORAGE_KEY_IMAGE_SIZE) || "2K";
+  });
+  const [selectedModel, setSelectedModel] = useState(() => {
+    return localStorage.getItem(STORAGE_KEY_MODEL) || "gemini-2.5-flash-image";
   });
 
   // Save preferences when they change
@@ -64,6 +84,14 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_IMAGE_SIZE, selectedImageSize);
   }, [selectedImageSize]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_MODEL, selectedModel);
+  }, [selectedModel]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_TOKEN_USAGE, JSON.stringify(tokenUsage));
+  }, [tokenUsage]);
 
   // Initialization
   useEffect(() => {
@@ -207,14 +235,16 @@ const App: React.FC = () => {
           file.type, 
           promptText,
           selectedAspectRatio,
-          selectedImageSize
+          selectedImageSize,
+          selectedModel
         );
         
         setTokenUsage(prev => ({
           total: prev.total + usage.total,
           input: prev.input + usage.input,
           output_image: prev.output_image + usage.output_image,
-          output_text: prev.output_text + usage.output_text
+          output_text: prev.output_text + usage.output_text,
+          images: prev.images + 1
         }));
         updateResultStatus(i, 'completed', imageUrl);
         log(`Success: ${file.name} (${task.promptName}) generated. Tokens: ${usage.total} (In: ${usage.input}, Out: ${usage.output_image + usage.output_text})`, "success");
@@ -249,7 +279,8 @@ const App: React.FC = () => {
 
   const handleClear = () => {
     setResults([]);
-    log("Results cleared.", "info");
+    setTokenUsage({ total: 0, input: 0, output_image: 0, output_text: 0, images: 0 });
+    log("Results and token usage cleared.", "info");
   };
 
   // Helper to handle download
@@ -271,7 +302,22 @@ const App: React.FC = () => {
       {/* Sidebar / Config Panel */}
       <div className={`fixed inset-y-0 left-0 z-50 w-full md:w-96 bg-slate-950 border-r border-slate-800 transform transition-transform duration-300 ${showConfig ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:static flex flex-col`}>
         <div className="p-4 border-b border-slate-800 flex justify-between items-center">
-          <h1 className="font-bold text-xl tracking-tight text-amber-500">Banana Pro</h1>
+          <div className="relative group">
+            <select 
+                className="bg-transparent font-bold text-xl tracking-tight text-amber-500 focus:outline-none cursor-pointer appearance-none pr-8"
+                value={selectedModel}
+                onChange={(e) => {
+                  setSelectedModel(e.target.value);
+                  setTokenUsage({ total: 0, input: 0, output_image: 0, output_text: 0, images: 0 });
+                  log("Model changed. Token usage cleared.", "info");
+                }}
+            >
+              {MODEL_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value} className="bg-slate-950 text-slate-200 text-sm">{opt.label}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 text-amber-500 pointer-events-none" size={20} />
+          </div>
           <button onClick={() => setShowConfig(false)} className="md:hidden text-slate-400"><CheckCircle/></button>
         </div>
         
@@ -321,22 +367,33 @@ const App: React.FC = () => {
                   
                   {/* Tooltip */}
                   <div className="absolute top-full left-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded p-2 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                    <div className="text-xs text-slate-400 mb-1">$2.00 / 1M tokens</div>
+                    <div className="text-xs text-slate-400 mb-1">
+                      {selectedModel === 'gemini-2.5-flash-image' ? '$0.30 / 1M tokens' : '$2.00 / 1M tokens'}
+                    </div>
                     <div className="text-xs font-mono text-green-400 font-bold">
-                      ${((tokenUsage.input / 1000000) * 2).toFixed(6)}
+                      ${((tokenUsage.input / 1000000) * (selectedModel === 'gemini-2.5-flash-image' ? 0.3 : 2)).toFixed(6)}
                     </div>
                   </div>
                 </div>
                 <div className="flex flex-col group relative">
                   <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold cursor-help">Output</span>
-                  <span className="text-sm font-mono text-green-400">{(tokenUsage.output_image + tokenUsage.output_text).toLocaleString()}</span>
+                  <span className="text-sm font-mono text-green-400">{(tokenUsage.output_image + tokenUsage.output_text).toLocaleString()} ({tokenUsage.images})</span>
 
                   {/* Tooltip */}
                   <div className="absolute top-full left-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded p-2 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                    <div className="text-xs text-slate-400 mb-1">$120.00 / 1M tokens (image)</div>
-                    <div className="text-xs text-slate-400 mb-1">$12.00 / 1M tokens (text)</div>
+                    {selectedModel === 'gemini-2.5-flash-image' ? (
+                      <div className="text-xs text-slate-400 mb-1">$0.039 / image</div>
+                    ) : (
+                      <>
+                        <div className="text-xs text-slate-400 mb-1">$120.00 / 1M tokens (image)</div>
+                        <div className="text-xs text-slate-400 mb-1">$12.00 / 1M tokens (text)</div>
+                      </>
+                    )}
                     <div className="text-xs font-mono text-green-400 font-bold">
-                      ${(((tokenUsage.output_image / 1000000) * 120) + ((tokenUsage.output_text / 1000000) * 12)).toFixed(6)}
+                      ${selectedModel === 'gemini-2.5-flash-image' 
+                        ? (tokenUsage.images * 0.039).toFixed(6)
+                        : (((tokenUsage.output_image / 1000000) * 120) + ((tokenUsage.output_text / 1000000) * 12)).toFixed(6)
+                      }
                     </div>
                   </div>
                 </div>
@@ -347,7 +404,10 @@ const App: React.FC = () => {
                   {/* Tooltip */}
                   <div className="absolute top-full left-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded p-2 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                     <div className="text-xs font-mono text-amber-400 font-bold">
-                      ${(((tokenUsage.input / 1000000) * 2) + ((tokenUsage.output_image / 1000000) * 120) + ((tokenUsage.output_text / 1000000) * 12)).toFixed(6)}
+                      ${selectedModel === 'gemini-2.5-flash-image'
+                        ? (((tokenUsage.input / 1000000) * 0.3) + (tokenUsage.images * 0.039)).toFixed(6)
+                        : (((tokenUsage.input / 1000000) * 2) + ((tokenUsage.output_image / 1000000) * 120) + ((tokenUsage.output_text / 1000000) * 12)).toFixed(6)
+                      }
                     </div>
                   </div>
                 </div>
@@ -407,10 +467,10 @@ const App: React.FC = () => {
            <div className="w-32">
              <label className="block text-xs font-mono text-slate-500 mb-2 uppercase">Image Size</label>
              <select 
-                className="w-full bg-slate-950 text-slate-200 border border-slate-700 rounded p-2.5 focus:border-amber-500 focus:outline-none"
+                className="w-full bg-slate-950 text-slate-200 border border-slate-700 rounded p-2.5 focus:border-amber-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 value={selectedImageSize}
                 onChange={(e) => setSelectedImageSize(e.target.value)}
-                disabled={isProcessing}
+                disabled={isProcessing || selectedModel === 'gemini-2.5-flash-image'}
              >
                {['1K', '2K', '4K'].map(size => (
                  <option key={size} value={size}>{size}</option>
@@ -435,9 +495,9 @@ const App: React.FC = () => {
            {/* Clear Button */}
            <button 
              onClick={handleClear}
-             disabled={isProcessing || results.length === 0}
+             disabled={isProcessing || (results.length === 0 && tokenUsage.total === 0 && tokenUsage.images === 0)}
              className={`px-6 py-2.5 rounded font-bold flex items-center gap-2 transition ${
-               isProcessing || results.length === 0
+               isProcessing || (results.length === 0 && tokenUsage.total === 0 && tokenUsage.images === 0)
                ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
                : 'bg-slate-700 hover:bg-red-600 text-white'
              }`}
