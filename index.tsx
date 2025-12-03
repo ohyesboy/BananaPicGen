@@ -37,9 +37,7 @@ const AuthWrapper: React.FC = () => {
       setAccessListLoading(true);
       getAccessList()
         .then((list) => {
-          console.log("Access list fetched:", list);
-          console.log("User email:", user.email);
-          console.log("Is in list:", list.includes(user.email || ''));
+          
           setAccessList(list);
         })
         .catch((error) => {

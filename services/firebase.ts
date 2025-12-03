@@ -7,10 +7,10 @@ import { getFirestore, doc, getDoc } from "firebase/firestore";
 // Example: VITE_FIREBASE_CONFIG='{"apiKey":"...","authDomain":"...",...}'
 const parseFirebaseConfig = () => {
   const configString = import.meta.env.VITE_FIREBASE_CONFIG;
-  console.log("Firebase config string:", configString); 
+
   if (configString) {
     try {
-        console.log("Parsing Firebase config");
+       
       return JSON.parse(configString);
     } catch (e) {
       console.error("Failed to parse VITE_FIREBASE_CONFIG", e);

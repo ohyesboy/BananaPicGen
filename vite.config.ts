@@ -16,8 +16,9 @@ export default defineConfig(({ mode }) => {
           registerType: 'autoUpdate',
           includeAssets: ['banana.svg'],
           devOptions: {
-            enabled: true
+            enabled: false  // Disable service worker in dev to avoid warnings
           },
+         
           manifest: {
             name: 'Banana Pic Gen',
             short_name: 'BananaGen',
