@@ -127,13 +127,14 @@ const App: React.FC = () => {
   }, [user?.email]);
 
   // Save prompts to Firestore
-  const handleSavePrompts = useCallback(async (prompts: Record<string, string>, selectedPrompts: string) => {
+  const handleSavePrompts = useCallback(async (prompts: Record<string, string>, selectedPrompts: string, promptOrder: string[]) => {
     if (!user?.email) return;
     
+    console.log('[handleSavePrompts] Saving with order:', promptOrder);
     setIsSavingUserDoc(true);
     try {
-      await updateUserDocument(user.email, { prompts, selected_prompts: selectedPrompts });
-      setUserDoc(prev => prev ? { ...prev, prompts, selected_prompts: selectedPrompts } : null);
+      await updateUserDocument(user.email, { prompts, selected_prompts: selectedPrompts, prompt_order: promptOrder });
+      setUserDoc(prev => prev ? { ...prev, prompts, selected_prompts: selectedPrompts, prompt_order: promptOrder } : null);
       log("Prompts saved to cloud.", "success");
     } catch (error) {
       console.error("Error saving prompts", error);
@@ -144,8 +145,8 @@ const App: React.FC = () => {
   }, [user?.email]);
 
   // Update local userDoc state immediately when prompts change (for RUN button to work)
-  const handlePromptsChange = useCallback((prompts: Record<string, string>, selectedPrompts: string) => {
-    setUserDoc(prev => prev ? { ...prev, prompts, selected_prompts: selectedPrompts } : null);
+  const handlePromptsChange = useCallback((prompts: Record<string, string>, selectedPrompts: string, promptOrder: string[]) => {
+    setUserDoc(prev => prev ? { ...prev, prompts, selected_prompts: selectedPrompts, prompt_order: promptOrder } : null);
   }, []);
 
   useEffect(() => {
@@ -447,6 +448,7 @@ const App: React.FC = () => {
             <PromptEditor 
               prompts={userDoc.prompts}
               selectedPrompts={userDoc.selected_prompts}
+              promptOrder={userDoc.prompt_order}
               onSave={handleSavePrompts}
               onChange={handlePromptsChange}
               isSaving={isSavingUserDoc}

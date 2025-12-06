@@ -10,14 +10,16 @@ interface PromptItem {
 interface PromptEditorProps {
   prompts: Record<string, string>;
   selectedPrompts: string;
-  onSave: (prompts: Record<string, string>, selectedPrompts: string) => void;
-  onChange?: (prompts: Record<string, string>, selectedPrompts: string) => void;
+  promptOrder?: string[];
+  onSave: (prompts: Record<string, string>, selectedPrompts: string, promptOrder: string[]) => void;
+  onChange?: (prompts: Record<string, string>, selectedPrompts: string, promptOrder: string[]) => void;
   isSaving?: boolean;
 }
 
 export const PromptEditor: React.FC<PromptEditorProps> = ({ 
   prompts, 
-  selectedPrompts, 
+  selectedPrompts,
+  promptOrder,
   onSave,
   onChange,
   isSaving = false
@@ -49,38 +51,54 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
     }
     
     const selectedSet = new Set(selectedPrompts.split(',').map(s => s.trim()).filter(Boolean));
-    const promptItems: PromptItem[] = Object.entries(prompts)
-      .map(([name, prompt]) => ({
-        // Convert __empty_X keys back to empty names
-        name: name.startsWith('__empty_') ? '' : name,
-        prompt: prompt as string,
-        selected: selectedSet.has(name)
-      }));
+    
+    // Use promptOrder if available, otherwise fall back to Object.keys
+    const orderedKeys = promptOrder && promptOrder.length > 0 
+      ? promptOrder.filter(key => key in prompts)
+      : Object.keys(prompts);
+    
+    // Add any keys that exist in prompts but not in order (for backwards compatibility)
+    const allKeys = new Set(orderedKeys);
+    Object.keys(prompts).forEach(key => {
+      if (!allKeys.has(key)) {
+        orderedKeys.push(key);
+      }
+    });
+    
+    const promptItems: PromptItem[] = orderedKeys.map(name => ({
+      // Convert __empty_X keys back to empty names
+      name: name.startsWith('__empty_') ? '' : name,
+      prompt: prompts[name] as string,
+      selected: selectedSet.has(name)
+    }));
     setItems(promptItems);
     setHasChanges(false);
     isInitialized.current = true;
-  }, [prompts, selectedPrompts]);
+  }, [prompts, selectedPrompts, promptOrder]);
 
   // Trigger save function using ref to get latest items
   const triggerSave = useCallback(() => {
     const currentItems = itemsRef.current;
     console.log('[triggerSave] Saving items:', currentItems);
     
-    // Build prompts object and selected string
+    // Build prompts object, selected string, and order array
     const newPrompts: Record<string, string> = {};
     const selectedNames: string[] = [];
+    const order: string[] = [];
 
     currentItems.forEach(item => {
       if (item.name.trim()) {
-        newPrompts[item.name.trim()] = item.prompt;
+        const trimmedName = item.name.trim();
+        newPrompts[trimmedName] = item.prompt;
+        order.push(trimmedName);
         if (item.selected) {
-          selectedNames.push(item.name.trim());
+          selectedNames.push(trimmedName);
         }
       }
     });
 
-    console.log('[triggerSave] Final prompts to save:', newPrompts);
-    onSave(newPrompts, selectedNames.join(','));
+    console.log('[triggerSave] Final prompts to save:', newPrompts, 'order:', order);
+    onSave(newPrompts, selectedNames.join(','), order);
     setHasChanges(false);
   }, [onSave]);
 
@@ -114,17 +132,19 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
     
     const newPrompts: Record<string, string> = {};
     const selectedNames: string[] = [];
+    const order: string[] = [];
 
     updatedItems.forEach((item, index) => {
       // Use index-based key for empty names to preserve them in parent state
       const key = item.name.trim() || `__empty_${index}`;
       newPrompts[key] = item.prompt;
+      order.push(key);
       if (item.selected && item.name.trim()) {
         selectedNames.push(item.name.trim());
       }
     });
 
-    onChange(newPrompts, selectedNames.join(','));
+    onChange(newPrompts, selectedNames.join(','), order);
   }, [onChange]);
 
   const recordInput = () => {

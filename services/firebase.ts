@@ -136,6 +136,7 @@ export interface UserDocument {
   lastname: string;
   prompts: Record<string, string>;
   selected_prompts: string;
+  prompt_order?: string[];  // Order of prompt names for consistent display
 }
 
 // Get or create user document
@@ -154,7 +155,8 @@ export const getUserDocument = async (email: string): Promise<UserDocument> => {
     firstname: "",
     lastname: "",
     prompts: {},
-    selected_prompts: ""
+    selected_prompts: "",
+    prompt_order: []
   };
   
   await setDoc(docRef, newUserDoc);
