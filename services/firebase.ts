@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, User } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, FacebookAuthProvider, OAuthProvider, signInWithPopup, signOut, User } from "firebase/auth";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
 
 // Firebase configuration from environment variable
@@ -26,6 +26,9 @@ let app;
 let auth: any;
 let db: any;
 let googleProvider: any;
+let facebookProvider: any;
+let appleProvider: any;
+let microsoftProvider: any;
 
 try {
     app = initializeApp(firebaseConfig);
@@ -35,11 +38,20 @@ try {
     googleProvider.setCustomParameters({
       prompt: "select_account"
     });
+    facebookProvider = new FacebookAuthProvider();
+    appleProvider = new OAuthProvider('apple.com');
+    appleProvider.addScope('email');
+    appleProvider.addScope('name');
+    microsoftProvider = new OAuthProvider('microsoft.com');
+    microsoftProvider.setCustomParameters({
+      prompt: 'select_account',
+      tenant: 'common'
+    });
 } catch (e) {
     console.warn("Firebase not configured correctly. Please update services/firebase.ts");
 }
 
-export { auth, db, googleProvider };
+export { auth, db, googleProvider, facebookProvider, appleProvider, microsoftProvider };
 
 export const signInWithGoogle = async () => {
   if (!auth) throw new Error("Firebase not configured");
@@ -48,6 +60,39 @@ export const signInWithGoogle = async () => {
     return result.user;
   } catch (error) {
     console.error("Error signing in with Google", error);
+    throw error;
+  }
+};
+
+export const signInWithFacebook = async () => {
+  if (!auth) throw new Error("Firebase not configured");
+  try {
+    const result = await signInWithPopup(auth, facebookProvider);
+    return result.user;
+  } catch (error) {
+    console.error("Error signing in with Facebook", error);
+    throw error;
+  }
+};
+
+export const signInWithApple = async () => {
+  if (!auth) throw new Error("Firebase not configured");
+  try {
+    const result = await signInWithPopup(auth, appleProvider);
+    return result.user;
+  } catch (error) {
+    console.error("Error signing in with Apple", error);
+    throw error;
+  }
+};
+
+export const signInWithMicrosoft = async () => {
+  if (!auth) throw new Error("Firebase not configured");
+  try {
+    const result = await signInWithPopup(auth, microsoftProvider);
+    return result.user;
+  } catch (error) {
+    console.error("Error signing in with Microsoft", error);
     throw error;
   }
 };
