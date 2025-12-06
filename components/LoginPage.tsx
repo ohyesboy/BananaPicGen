@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { signInWithGoogle, signInWithMicrosoft } from '../services/firebase';
+import { signInWithGoogle, signInWithMicrosoft, signInWithFacebook } from '../services/firebase';
 
 export const LoginPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +21,23 @@ export const LoginPage: React.FC = () => {
     } catch (error: any) {
       console.error("Login failed", error);
       if (error.code === 'auth/account-exists-with-different-credential') {
-        setError("This email is already registered with Google. Please use 'Sign in with Google' instead.");
+        setError("This email is already registered with another provider. Please use your original sign-in method.");
+      } else {
+        setError("Login failed. Please try again.");
+      }
+    }
+  };
+
+  const handleFacebookLogin = async () => {
+    setError(null);
+    try {
+      await signInWithFacebook();
+    } catch (error: any) {
+      console.error("Login failed", error);
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        setError("This email is already registered with another provider. Please use your original sign-in method.");
+      } else if (error.code === 'auth/operation-not-allowed') {
+        setError("Facebook login is not available yet. Please use Google or Microsoft.");
       } else {
         setError("Login failed. Please try again.");
       }
@@ -65,6 +81,16 @@ export const LoginPage: React.FC = () => {
               <path fill="#FFB900" d="M13 13h10v10H13z"/>
             </svg>
             Sign in with Microsoft
+          </button>
+
+          <button 
+            onClick={handleFacebookLogin}
+            className="w-full bg-[#1877F2] hover:bg-[#166FE5] text-white font-bold py-3 px-4 rounded transition flex items-center justify-center gap-2"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+            </svg>
+            Sign in with Facebook
           </button>
         </div>
       </div>

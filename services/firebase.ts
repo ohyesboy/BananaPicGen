@@ -39,6 +39,8 @@ try {
       prompt: "select_account"
     });
     facebookProvider = new FacebookAuthProvider();
+    facebookProvider.addScope('email');
+    facebookProvider.addScope('public_profile');
     appleProvider = new OAuthProvider('apple.com');
     appleProvider.addScope('email');
     appleProvider.addScope('name');
@@ -68,6 +70,12 @@ export const signInWithFacebook = async () => {
   if (!auth) throw new Error("Firebase not configured");
   try {
     const result = await signInWithPopup(auth, facebookProvider);
+    // Get the Facebook access token to fetch profile picture
+    const credential = FacebookAuthProvider.credentialFromResult(result);
+    if (credential?.accessToken) {
+      // Store the access token for fetching profile picture
+      sessionStorage.setItem('fb_access_token', credential.accessToken);
+    }
     return result.user;
   } catch (error) {
     console.error("Error signing in with Facebook", error);

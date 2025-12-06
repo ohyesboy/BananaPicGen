@@ -22,6 +22,31 @@ const MODEL_OPTIONS = [
   { label: "Nano Banana 2", value: "gemini-2.5-flash-image" }
 ];
 
+// Helper to get user photo URL with Facebook fallback
+const getUserPhotoURL = (user: User | null): string | null => {
+  if (!user) return null;
+  
+  // Check if this is a Facebook user
+  const facebookProvider = user.providerData?.find(p => p.providerId === 'facebook.com');
+  
+  if (facebookProvider) {
+    // For Facebook, we need to use the access token to get the real profile picture
+    const accessToken = sessionStorage.getItem('fb_access_token');
+    if (accessToken && facebookProvider.uid) {
+      return `https://graph.facebook.com/${facebookProvider.uid}/picture?type=large&access_token=${accessToken}`;
+    }
+    // If we have photoURL from provider, try it (though it may not work without token)
+    if (facebookProvider.photoURL) {
+      return facebookProvider.photoURL;
+    }
+  }
+  
+  // For other providers (Google, Microsoft, etc.), use the standard photoURL
+  if (user.photoURL) return user.photoURL;
+  
+  return null;
+};
+
 const App: React.FC = () => {
   // Get user from auth (already authenticated via AuthWrapper)
   const user = auth?.currentUser;
@@ -412,8 +437,8 @@ const App: React.FC = () => {
            {/* User Auth Status */}
            <div className="flex items-center justify-between bg-slate-800 p-3 rounded-lg">
              <div className="flex items-center gap-2 overflow-hidden">
-               {user?.photoURL ? (
-                 <img src={user.photoURL} alt="User" className="w-6 h-6 rounded-full" referrerPolicy="no-referrer" />
+               {getUserPhotoURL(user) ? (
+                 <img src={getUserPhotoURL(user)!} alt="User" className="w-6 h-6 rounded-full" referrerPolicy="no-referrer" />
                ) : (
                  <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-500">
                     <span className="text-xs font-bold">{user?.displayName?.[0] || '?'}</span>
