@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, FacebookAuthProvider, OAuthProvider, signInWithPopup, signOut, User } from "firebase/auth";
-import { getFirestore, doc, getDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 
 // Firebase configuration from environment variable
 // Set VITE_FIREBASE_CONFIG as a JSON string in your .env file
@@ -128,4 +128,43 @@ export const getAccessList = async (): Promise<string[]> => {
     console.error("Error fetching access list", error);
     return [];
   }
+};
+
+// User document type
+export interface UserDocument {
+  firstname: string;
+  lastname: string;
+  prompts: Record<string, string>;
+  selected_prompts: string;
+}
+
+// Get or create user document
+export const getUserDocument = async (email: string): Promise<UserDocument> => {
+  if (!db) throw new Error("Firestore not configured");
+  
+  const docRef = doc(db, "users", email);
+  const docSnap = await getDoc(docRef);
+  
+  if (docSnap.exists()) {
+    return docSnap.data() as UserDocument;
+  }
+  
+  // Create new user document with default values
+  const newUserDoc: UserDocument = {
+    firstname: "",
+    lastname: "",
+    prompts: {},
+    selected_prompts: ""
+  };
+  
+  await setDoc(docRef, newUserDoc);
+  return newUserDoc;
+};
+
+// Update user document
+export const updateUserDocument = async (email: string, data: Partial<UserDocument>): Promise<void> => {
+  if (!db) throw new Error("Firestore not configured");
+  
+  const docRef = doc(db, "users", email);
+  await updateDoc(docRef, data);
 };

@@ -1,16 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { User } from 'firebase/auth';
-import { auth, logout } from './services/firebase';
-import { AppConfig, LogEntry, ProcessingResult } from './types';
+import { auth, logout, getUserDocument, updateUserDocument, UserDocument } from './services/firebase';
+import { LogEntry, ProcessingResult } from './types';
 import { Terminal } from './components/Terminal';
-import { ConfigEditor } from './components/ConfigEditor';
+import { PromptEditor } from './components/PromptEditor';
 import { generateImageFromReference, fileToBase64 } from './services/geminiService';
 import { FolderOpen, Play, Download, Image as ImageIcon, CheckCircle, AlertCircle, Loader2, Key, Trash2, ChevronDown, X } from 'lucide-react';
-import defaultConfig from './config.json';
 
-const DEFAULT_CONFIG: AppConfig = defaultConfig;
-const STORAGE_KEY = 'banana_pic_gen_config';
-const STORAGE_KEY_COMBO = 'banana_pic_gen_combo';
 const STORAGE_KEY_ASPECT_RATIO = 'banana_pic_gen_aspect_ratio';
 const STORAGE_KEY_IMAGE_SIZE = 'banana_pic_gen_image_size';
 const STORAGE_KEY_MODEL = 'banana_pic_gen_model';
@@ -51,31 +47,14 @@ const App: React.FC = () => {
   // Get user from auth (already authenticated via AuthWrapper)
   const user = auth?.currentUser;
 
-  // Config State
-  const [config, setConfig] = useState<AppConfig>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error("Failed to parse saved config", e);
-        return DEFAULT_CONFIG;
-      }
-    }
-    return DEFAULT_CONFIG;
-  });
+  // User Document State (from Firestore)
+  const [userDoc, setUserDoc] = useState<UserDocument | null>(null);
+  const [isLoadingUserDoc, setIsLoadingUserDoc] = useState(true);
+  const [isSavingUserDoc, setIsSavingUserDoc] = useState(false);
   
   // App State
   const [hasKey, setHasKey] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [selectedCombo, setSelectedCombo] = useState<string | null>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_COMBO);
-    if (saved && config.combos[saved]) {
-      return saved;
-    }
-    const keys = Object.keys(config.combos);
-    return keys.length > 0 ? keys[0] : null;
-  });
   const [results, setResults] = useState<ProcessingResult[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -112,6 +91,63 @@ const App: React.FC = () => {
   // Lightbox State
   const [lightboxImage, setLightboxImage] = useState<ProcessingResult | null>(null);
 
+  // Close lightbox on ESC key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && lightboxImage) {
+        setLightboxImage(null);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxImage]);
+
+  // Fetch user document on mount
+  useEffect(() => {
+    const fetchUserDoc = async () => {
+      if (!user?.email) {
+        setIsLoadingUserDoc(false);
+        return;
+      }
+      
+      try {
+        const doc = await getUserDocument(user.email);
+        setUserDoc(doc);
+        log("User profile loaded.", "info");
+      } catch (error) {
+        console.error("Error fetching user document", error);
+        log("Failed to load user profile.", "error");
+      } finally {
+        setIsLoadingUserDoc(false);
+      }
+    };
+    
+    fetchUserDoc();
+  }, [user?.email]);
+
+  // Save prompts to Firestore
+  const handleSavePrompts = useCallback(async (prompts: Record<string, string>, selectedPrompts: string) => {
+    if (!user?.email) return;
+    
+    setIsSavingUserDoc(true);
+    try {
+      await updateUserDocument(user.email, { prompts, selected_prompts: selectedPrompts });
+      setUserDoc(prev => prev ? { ...prev, prompts, selected_prompts: selectedPrompts } : null);
+      log("Prompts saved to cloud.", "success");
+    } catch (error) {
+      console.error("Error saving prompts", error);
+      log("Failed to save prompts.", "error");
+    } finally {
+      setIsSavingUserDoc(false);
+    }
+  }, [user?.email]);
+
+  // Update local userDoc state immediately when prompts change (for RUN button to work)
+  const handlePromptsChange = useCallback((prompts: Record<string, string>, selectedPrompts: string) => {
+    setUserDoc(prev => prev ? { ...prev, prompts, selected_prompts: selectedPrompts } : null);
+  }, []);
+
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
@@ -131,12 +167,6 @@ const App: React.FC = () => {
   };
 
   // Save preferences when they change
-  useEffect(() => {
-    if (selectedCombo) {
-      localStorage.setItem(STORAGE_KEY_COMBO, selectedCombo);
-    }
-  }, [selectedCombo]);
-
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_ASPECT_RATIO, selectedAspectRatio);
   }, [selectedAspectRatio]);
@@ -207,8 +237,8 @@ const App: React.FC = () => {
   };
 
   const handleProcess = async () => {
-    if (!selectedCombo) {
-      log("Error: No prompt combo selected.", "error");
+    if (!userDoc || !userDoc.selected_prompts) {
+      log("Error: No prompts selected.", "error");
       return;
     }
     if (selectedFiles.length === 0) {
@@ -234,21 +264,20 @@ const App: React.FC = () => {
 
     log(`Starting batch for ${filesToProcess.length} files...`, "info");
 
-    // 2. Get Prompts from Combo
-    const comboString = config.combos[selectedCombo];
-    if (!comboString) {
-      log(`Combo "${selectedCombo}" definition not found.`, "error");
+    // 2. Get selected prompts from user document
+    const promptNames = userDoc.selected_prompts.split(',').map(s => s.trim()).filter(Boolean);
+    if (promptNames.length === 0) {
+      log("No prompts selected. Please check at least one prompt.", "error");
       setIsProcessing(false);
       return;
     }
     
-    const promptNames = comboString.split(',').map(s => s.trim());
     const tasks: ProcessingResult[] = [];
 
     // 3. Build Task List
     filesToProcess.forEach(file => {
       promptNames.forEach(pName => {
-        if (config.prompts[pName]) {
+        if (userDoc.prompts[pName]) {
           tasks.push({
             id: `${file.name}-${pName}-${Date.now()}`,
             originalFileName: file.name,
@@ -256,7 +285,7 @@ const App: React.FC = () => {
             status: 'pending'
           });
         } else {
-          log(`Warning: Prompt "${pName}" not found in config.`, "warning");
+          log(`Warning: Prompt "${pName}" not found.`, "warning");
         }
       });
     });
@@ -268,7 +297,7 @@ const App: React.FC = () => {
     for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i];
       const file = filesToProcess.find(f => f.name === task.originalFileName);
-      const promptText = config.prompts[task.promptName];
+      const promptText = userDoc.prompts[task.promptName];
 
       if (!file || !promptText) continue;
 
@@ -410,14 +439,23 @@ const App: React.FC = () => {
         </div>
         
         <div className="flex-1 p-4 overflow-hidden">
-          <ConfigEditor 
-            config={config} 
-            onSave={(newConf) => {
-              setConfig(newConf);
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(newConf));
-              log("Configuration updated and saved to local storage.", "success");
-            }} 
-          />
+          {isLoadingUserDoc ? (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="animate-spin text-amber-500" size={32} />
+            </div>
+          ) : userDoc ? (
+            <PromptEditor 
+              prompts={userDoc.prompts}
+              selectedPrompts={userDoc.selected_prompts}
+              onSave={handleSavePrompts}
+              onChange={handlePromptsChange}
+              isSaving={isSavingUserDoc}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-slate-500">
+              <p>Failed to load user profile</p>
+            </div>
+          )}
         </div>
         <div className="p-4 bg-slate-900 border-t border-slate-800 space-y-4">
            {/* API Key Status */}
@@ -548,22 +586,6 @@ const App: React.FC = () => {
 
         {/* Action Bar */}
         <div className="p-6 bg-slate-900 border-b border-slate-800 flex flex-wrap gap-6 items-end">
-           {/* Combo Selector */}
-           <div className="w-64">
-             <label className="block text-xs font-mono text-slate-500 mb-2 uppercase">Select Combo (-combo)</label>
-             <select 
-                className="w-full bg-slate-950 text-slate-200 border border-slate-700 rounded p-2.5 focus:border-amber-500 focus:outline-none"
-                value={selectedCombo || ''}
-                onChange={(e) => setSelectedCombo(e.target.value)}
-                disabled={isProcessing}
-             >
-               <option value="" disabled>-- Select a prompt combo --</option>
-               {Object.keys(config.combos).map(key => (
-                 <option key={key} value={key}>{key}</option>
-               ))}
-             </select>
-           </div>
-
            {/* Aspect Ratio Selector */}
            <div className="w-32">
              <label className="block text-xs font-mono text-slate-500 mb-2 uppercase">Aspect Ratio</label>
@@ -616,9 +638,9 @@ const App: React.FC = () => {
            {/* Run Button */}
            <button 
              onClick={handleProcess}
-             disabled={isProcessing || !hasKey || selectedFiles.length === 0 || !selectedCombo}
+             disabled={isProcessing || !hasKey || selectedFiles.length === 0 || !userDoc?.selected_prompts}
              className={`px-6 py-2.5 rounded font-bold flex items-center gap-2 transition ${
-               isProcessing || !hasKey || selectedFiles.length === 0 || !selectedCombo
+               isProcessing || !hasKey || selectedFiles.length === 0 || !userDoc?.selected_prompts
                ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
                : 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/20'
              }`}
