@@ -26,51 +26,51 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
   const [hasChanges, setHasChanges] = useState(false);
   const lastInputTime = useRef<number>(Date.now());
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const itemsRef = useRef<PromptItem[]>([]);
+  const isLocalChange = useRef(false);
+  const isInitialized = useRef(false);
 
-  // Initialize items from props
+  // Keep itemsRef in sync with items
   useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+
+  // Initialize items from props (only on first load or external changes)
+  useEffect(() => {
+    // Skip if this is a local change propagating back through props
+    if (isLocalChange.current) {
+      isLocalChange.current = false;
+      return;
+    }
+    
+    // Skip re-initialization after first load - local state is source of truth
+    if (isInitialized.current) {
+      return;
+    }
+    
     const selectedSet = new Set(selectedPrompts.split(',').map(s => s.trim()).filter(Boolean));
-    const promptItems: PromptItem[] = Object.entries(prompts).map(([name, prompt]) => ({
-      name,
-      prompt: prompt as string,
-      selected: selectedSet.has(name)
-    }));
+    const promptItems: PromptItem[] = Object.entries(prompts)
+      .map(([name, prompt]) => ({
+        // Convert __empty_X keys back to empty names
+        name: name.startsWith('__empty_') ? '' : name,
+        prompt: prompt as string,
+        selected: selectedSet.has(name)
+      }));
     setItems(promptItems);
     setHasChanges(false);
+    isInitialized.current = true;
   }, [prompts, selectedPrompts]);
 
-  // Auto-save logic: save if changes exist and no input for 10 seconds
-  useEffect(() => {
-    if (!hasChanges) return;
-
-    const checkAndSave = () => {
-      const timeSinceLastInput = Date.now() - lastInputTime.current;
-      if (timeSinceLastInput >= 10000 && hasChanges) {
-        triggerSave();
-      }
-    };
-
-    // Clear existing timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    // Set new timeout to check after 10 seconds from last input
-    saveTimeoutRef.current = setTimeout(checkAndSave, 10000);
-
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, [hasChanges, items]);
-
+  // Trigger save function using ref to get latest items
   const triggerSave = useCallback(() => {
+    const currentItems = itemsRef.current;
+    console.log('[triggerSave] Saving items:', currentItems);
+    
     // Build prompts object and selected string
     const newPrompts: Record<string, string> = {};
     const selectedNames: string[] = [];
 
-    items.forEach(item => {
+    currentItems.forEach(item => {
       if (item.name.trim()) {
         newPrompts[item.name.trim()] = item.prompt;
         if (item.selected) {
@@ -79,23 +79,48 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
       }
     });
 
+    console.log('[triggerSave] Final prompts to save:', newPrompts);
     onSave(newPrompts, selectedNames.join(','));
     setHasChanges(false);
-  }, [items, onSave]);
+  }, [onSave]);
+
+  // Auto-save logic: check every second if we have changes and no input for 5 seconds
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      if (!itemsRef.current.length) return;
+      
+      const hasUnsavedChanges = hasChanges;
+      if (!hasUnsavedChanges) return;
+      
+      const timeSinceLastInput = Date.now() - lastInputTime.current;
+      console.log('[AutoSave] Checking, timeSinceLastInput:', timeSinceLastInput, 'hasChanges:', hasUnsavedChanges);
+      
+      if (timeSinceLastInput >= 5000) {
+        console.log('[AutoSave] Triggering save, items:', itemsRef.current);
+        triggerSave();
+      }
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [triggerSave, hasChanges]);
 
   // Notify parent of changes immediately (for local state updates)
+  // Include ALL items, even empty ones, to keep parent in sync with local state
   const notifyChange = useCallback((updatedItems: PromptItem[]) => {
     if (!onChange) return;
+    
+    // Mark this as a local change so we don't reset state when props update
+    isLocalChange.current = true;
     
     const newPrompts: Record<string, string> = {};
     const selectedNames: string[] = [];
 
-    updatedItems.forEach(item => {
-      if (item.name.trim()) {
-        newPrompts[item.name.trim()] = item.prompt;
-        if (item.selected) {
-          selectedNames.push(item.name.trim());
-        }
+    updatedItems.forEach((item, index) => {
+      // Use index-based key for empty names to preserve them in parent state
+      const key = item.name.trim() || `__empty_${index}`;
+      newPrompts[key] = item.prompt;
+      if (item.selected && item.name.trim()) {
+        selectedNames.push(item.name.trim());
       }
     });
 
@@ -103,6 +128,7 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
   }, [onChange]);
 
   const recordInput = () => {
+    console.log('[recordInput] Recording input, setting hasChanges to true');
     lastInputTime.current = Date.now();
     setHasChanges(true);
   };
