@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, Trash2, Loader2, Check } from 'lucide-react';
+import { Plus, Trash2, Loader2, Check, GripVertical } from 'lucide-react';
 
 interface PromptItem {
   name: string;
@@ -26,6 +26,8 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
 }) => {
   const [items, setItems] = useState<PromptItem[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const lastInputTime = useRef<number>(Date.now());
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const itemsRef = useRef<PromptItem[]>([]);
@@ -201,6 +203,47 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
     });
   };
 
+  // Drag and drop handlers
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (index: number) => {
+    if (draggedIndex === null || draggedIndex === index) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    recordInput();
+    setItems(prev => {
+      const next = [...prev];
+      const [draggedItem] = next.splice(draggedIndex, 1);
+      next.splice(index, 0, draggedItem);
+      notifyChange(next);
+      return next;
+    });
+
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 flex flex-col h-full">
       <div className="flex justify-between items-center mb-4">
@@ -234,8 +277,28 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
         )}
         
         {items.map((item, index) => (
-          <div key={index} className="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2">
+          <div 
+            key={index} 
+            className={`bg-slate-950 border rounded-lg p-3 space-y-2 transition-all ${
+              draggedIndex === index 
+                ? 'opacity-50 border-amber-500' 
+                : dragOverIndex === index 
+                  ? 'border-amber-400 border-2' 
+                  : 'border-slate-800'
+            }`}
+            draggable
+            onDragStart={() => handleDragStart(index)}
+            onDragOver={(e) => handleDragOver(e, index)}
+            onDragLeave={handleDragLeave}
+            onDrop={() => handleDrop(index)}
+            onDragEnd={handleDragEnd}
+          >
             <div className="flex items-center gap-2">
+              {/* Drag Handle */}
+              <div className="cursor-grab active:cursor-grabbing text-slate-600 hover:text-slate-400 transition">
+                <GripVertical size={16} />
+              </div>
+              
               {/* Checkbox */}
               <input
                 type="checkbox"
@@ -276,7 +339,7 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
       
       <div className="mt-3 pt-3 border-t border-slate-800">
         <p className="text-[10px] text-slate-500 text-center">
-          Auto-saves 10 seconds after last edit
+          Auto-saves 5 seconds after last edit
         </p>
       </div>
     </div>
