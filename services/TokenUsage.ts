@@ -3,7 +3,7 @@ export type ModelType = "gemini-2.5-flash-image" | "gemini-3-pro-image-preview";
 // Pricing per model (in USD)
 const PRICING = {
   "gemini-2.5-flash-image": {
-    input: 0,                       // No token cost
+    input: 0.30 / 1_000_000,                       // No token cost
     output_text: 0,                 // No token cost
     output_image: 0,                // No token cost
     output_imageflat: 0.039,        // $0.039 flat rate per image
