@@ -2,15 +2,15 @@
 
 * Support Nano Banana 2 and 3 
 
-* Select 1 input picture as reference
+* Select reference picture (multiple can be selected, each one will be used to generated once for the combo)
 
-* Define prompts in json, and generate a combo of them
+* Define your own prompts 
 
-* Google (firebase) authentication
+* Google, Microsoft, Facebook Authentication
 
-* Simple authorization (if email is in list)
+* Shows token used and cost 
 
-* Shows token used and cost respectively under Nano Banana 2 and 3 
+* Cost and prompts saved in cloud
 
   
 
@@ -30,13 +30,14 @@
 
 4. Copy the `firebaseConfig` object provided (it looks like `const firebaseConfig = { ... }`). Make the json in 1 line.
 
-5. For local, put under .env.local. For online deployment, add it its environment vars
+5. For local, put under .env.local. (copy from `.env.local.example`) 
+   For online deployment, add it its environment vars
 
    
 
-### Enable Google authentication in firebase
+### Enable Google/MS/FB authentication in firebase
 
-* Enable Google in **Authentication -> Sign-in Method**
+* Enable in **Authentication -> Sign-in Method**
 * Add Domain (localhost is by default there) in **Authentication -> Settings -> Authorized domains**
 
 
@@ -56,7 +57,7 @@
   service cloud.firestore {
     match /databases/{database}/documents {
       match /{document=**} {
-        allow read: if request.auth != null;
+        allow read, write: if request.auth != null;
       }
     }
   }

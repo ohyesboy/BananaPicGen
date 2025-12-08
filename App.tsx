@@ -181,34 +181,54 @@ const App: React.FC = () => {
     tokenUsage.saveToLocalStorage(STORAGE_KEY_TOKEN_USAGE);
   }, [tokenUsage]);
 
-  // Track previous historic_cost to detect changes
+  // Track previous historic values to detect changes
   const prevHistoricCostRef = useRef<number>(tokenUsage.historic_cost);
+  const prevHistoricImagesRef = useRef<number>(tokenUsage.historic_images);
 
-  // Sync historic_cost to cloud when it changes
+  // Sync historic_cost and historic_images to cloud when they change
   useEffect(() => {
     if (!user?.email) return;
     
     const currentCost = tokenUsage.historic_cost;
-    if (currentCost !== prevHistoricCostRef.current) {
+    const currentImages = tokenUsage.historic_images;
+    const costChanged = currentCost !== prevHistoricCostRef.current;
+    const imagesChanged = currentImages !== prevHistoricImagesRef.current;
+    
+    if (costChanged || imagesChanged) {
       prevHistoricCostRef.current = currentCost;
+      prevHistoricImagesRef.current = currentImages;
       
       // Save to cloud (fire and forget, don't block UI)
-      updateUserDocument(user.email, { historic_cost: currentCost })
-        .catch(err => console.error('Failed to sync historic_cost to cloud:', err));
+      updateUserDocument(user.email, { 
+        historic_cost: currentCost,
+        historic_images: currentImages
+      }).catch(err => console.error('Failed to sync historic data to cloud:', err));
     }
-  }, [tokenUsage.historic_cost, user?.email]);
+  }, [tokenUsage.historic_cost, tokenUsage.historic_images, user?.email]);
 
-  // Load historic_cost from cloud on initial load
+  // Load historic data from cloud on initial load
   useEffect(() => {
+    let needsUpdate = false;
+    const updates: Partial<{ historic_cost: number; historic_images: number }> = {};
+    
     if (userDoc?.historic_cost !== undefined && userDoc.historic_cost > tokenUsage.historic_cost) {
-      // Cloud has higher value, update local
+      updates.historic_cost = userDoc.historic_cost;
+      needsUpdate = true;
+    }
+    if (userDoc?.historic_images !== undefined && userDoc.historic_images > tokenUsage.historic_images) {
+      updates.historic_images = userDoc.historic_images;
+      needsUpdate = true;
+    }
+    
+    if (needsUpdate) {
       setTokenUsage(prev => {
         const next = TokenUsage.fromJSON(prev.toJSON());
-        next.historic_cost = userDoc.historic_cost!;
+        if (updates.historic_cost !== undefined) next.historic_cost = updates.historic_cost;
+        if (updates.historic_images !== undefined) next.historic_images = updates.historic_images;
         return next;
       });
     }
-  }, [userDoc?.historic_cost]);
+  }, [userDoc?.historic_cost, userDoc?.historic_images]);
 
   // Initialization
   useEffect(() => {
@@ -547,7 +567,7 @@ const App: React.FC = () => {
                         {/* Tooltip */}
                         <div className="absolute top-full left-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded p-2 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                           <div className="text-xs text-slate-400 mb-1">
-                            {selectedModel === 'gemini-2.5-flash-image' ? 'Flat rate per image' : '$2.00 / 1M tokens'}
+                            {selectedModel === 'gemini-2.5-flash-image' ? '$0.30 / 1M tokens' : '$2.00 / 1M tokens'}
                           </div>
                           <div className="text-xs font-mono text-blue-400 font-bold">
                             {tokenUsage.input.toLocaleString()} tokens
@@ -583,7 +603,7 @@ const App: React.FC = () => {
                             {tokenUsage.total.toLocaleString()} tokens
                           </div>
                           <div className="text-xs text-slate-400 mt-1">
-                            Historic: ${tokenUsage.historic_cost.toFixed(4)}
+                            Historic: ${tokenUsage.historic_cost.toFixed(4)} ({tokenUsage.historic_images} images)
                           </div>
                         </div>
                       </div>

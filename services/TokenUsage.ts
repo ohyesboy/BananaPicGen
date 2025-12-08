@@ -24,6 +24,7 @@ export interface TokenUsageData {
   images: number;
   total_cost: number;
   historic_cost: number;
+  historic_images: number;
 }
 
 export class TokenUsage {
@@ -34,6 +35,7 @@ export class TokenUsage {
   images: number = 0;
   total_cost: number = 0;
   historic_cost: number = 0;
+  historic_images: number = 0;
 
   constructor(data?: Partial<TokenUsageData>) {
     if (data) {
@@ -44,6 +46,7 @@ export class TokenUsage {
       this.images = data.images ?? 0;
       this.total_cost = data.total_cost ?? 0;
       this.historic_cost = data.historic_cost ?? 0;
+      this.historic_images = data.historic_images ?? 0;
     }
   }
 
@@ -75,6 +78,7 @@ export class TokenUsage {
     // Update costs
     this.total_cost += itemCost;
     this.historic_cost += itemCost;
+    this.historic_images += 1;
   }
 
   /**
@@ -124,6 +128,7 @@ export class TokenUsage {
       images: this.images,
       total_cost: this.total_cost,
       historic_cost: this.historic_cost,
+      historic_images: this.historic_images,
     };
   }
 
