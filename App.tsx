@@ -542,21 +542,21 @@ const App: React.FC = () => {
                     <>
                       <div className="flex flex-col group relative">
                         <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold cursor-help">Input</span>
-                        <span className="text-sm font-mono text-blue-400">{tokenUsage.input.toLocaleString()}</span>
+                        <span className="text-sm font-mono text-blue-400">${costBreakdown.inputCost.toFixed(4)}</span>
                         
                         {/* Tooltip */}
                         <div className="absolute top-full left-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded p-2 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                           <div className="text-xs text-slate-400 mb-1">
                             {selectedModel === 'gemini-2.5-flash-image' ? 'Flat rate per image' : '$2.00 / 1M tokens'}
                           </div>
-                          <div className="text-xs font-mono text-green-400 font-bold">
-                            ${costBreakdown.inputCost.toFixed(6)}
+                          <div className="text-xs font-mono text-blue-400 font-bold">
+                            {tokenUsage.input.toLocaleString()} tokens
                           </div>
                         </div>
                       </div>
                       <div className="flex flex-col group relative">
                         <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold cursor-help">Output</span>
-                        <span className="text-sm font-mono text-green-400">{(tokenUsage.output_image + tokenUsage.output_text).toLocaleString()} ({tokenUsage.images})</span>
+                        <span className="text-sm font-mono text-green-400">${costBreakdown.outputCost.toFixed(4)}</span>
 
                         {/* Tooltip */}
                         <div className="absolute top-full left-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded p-2 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
@@ -569,18 +569,21 @@ const App: React.FC = () => {
                             </>
                           )}
                           <div className="text-xs font-mono text-green-400 font-bold">
-                            ${costBreakdown.outputCost.toFixed(6)}
+                            {(tokenUsage.output_image + tokenUsage.output_text).toLocaleString()} tokens ({tokenUsage.images} images)
                           </div>
                         </div>
                       </div>
                       <div className="flex flex-col group relative">
                         <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold cursor-help">Total</span>
-                        <span className="text-sm font-mono text-amber-400">{tokenUsage.total.toLocaleString()}</span>
+                        <span className="text-sm font-mono text-amber-400">${costBreakdown.totalCost.toFixed(4)}</span>
 
                         {/* Tooltip */}
                         <div className="absolute top-full left-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded p-2 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                           <div className="text-xs font-mono text-amber-400 font-bold">
-                            ${costBreakdown.totalCost.toFixed(6)} / ${costBreakdown.historic_cost.toFixed(6)}
+                            {tokenUsage.total.toLocaleString()} tokens
+                          </div>
+                          <div className="text-xs text-slate-400 mt-1">
+                            Historic: ${tokenUsage.historic_cost.toFixed(4)}
                           </div>
                         </div>
                       </div>
