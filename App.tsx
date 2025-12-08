@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { User } from 'firebase/auth';
 import { auth, logout, getUserDocument, updateUserDocument, UserDocument } from './services/firebase';
 import { LogEntry, ProcessingResult } from './types';
 import { Terminal } from './components/Terminal';
 import { PromptEditor } from './components/PromptEditor';
 import { generateImageFromReference, fileToBase64 } from './services/geminiService';
+import { TokenUsage, ModelType } from './services/TokenUsage';
 import { FolderOpen, Play, Download, Image as ImageIcon, CheckCircle, AlertCircle, Loader2, Key, Trash2, ChevronDown, X } from 'lucide-react';
 
 const STORAGE_KEY_ASPECT_RATIO = 'banana_pic_gen_aspect_ratio';
@@ -59,16 +60,8 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
-  const [tokenUsage, setTokenUsage] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_TOKEN_USAGE);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error("Failed to parse saved token usage", e);
-      }
-    }
-    return { total: 0, input: 0, output_image: 0, output_text: 0, images: 0 };
+  const [tokenUsage, setTokenUsage] = useState<TokenUsage>(() => {
+    return TokenUsage.fromLocalStorage(STORAGE_KEY_TOKEN_USAGE);
   });
   const [selectedAspectRatio, setSelectedAspectRatio] = useState(() => {
     return localStorage.getItem(STORAGE_KEY_ASPECT_RATIO) || "4:5";
@@ -185,8 +178,37 @@ const App: React.FC = () => {
   }, [temperature]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_TOKEN_USAGE, JSON.stringify(tokenUsage));
+    tokenUsage.saveToLocalStorage(STORAGE_KEY_TOKEN_USAGE);
   }, [tokenUsage]);
+
+  // Track previous historic_cost to detect changes
+  const prevHistoricCostRef = useRef<number>(tokenUsage.historic_cost);
+
+  // Sync historic_cost to cloud when it changes
+  useEffect(() => {
+    if (!user?.email) return;
+    
+    const currentCost = tokenUsage.historic_cost;
+    if (currentCost !== prevHistoricCostRef.current) {
+      prevHistoricCostRef.current = currentCost;
+      
+      // Save to cloud (fire and forget, don't block UI)
+      updateUserDocument(user.email, { historic_cost: currentCost })
+        .catch(err => console.error('Failed to sync historic_cost to cloud:', err));
+    }
+  }, [tokenUsage.historic_cost, user?.email]);
+
+  // Load historic_cost from cloud on initial load
+  useEffect(() => {
+    if (userDoc?.historic_cost !== undefined && userDoc.historic_cost > tokenUsage.historic_cost) {
+      // Cloud has higher value, update local
+      setTokenUsage(prev => {
+        const next = TokenUsage.fromJSON(prev.toJSON());
+        next.historic_cost = userDoc.historic_cost!;
+        return next;
+      });
+    }
+  }, [userDoc?.historic_cost]);
 
   // Initialization
   useEffect(() => {
@@ -317,13 +339,11 @@ const App: React.FC = () => {
           temperature
         );
         
-        setTokenUsage(prev => ({
-          total: prev.total + usage.total,
-          input: prev.input + usage.input,
-          output_image: prev.output_image + usage.output_image,
-          output_text: prev.output_text + usage.output_text,
-          images: prev.images + 1
-        }));
+        setTokenUsage(prev => {
+          const next = TokenUsage.fromJSON(prev.toJSON());
+          next.addItem(usage.input, usage.output_text, usage.output_image, selectedModel as ModelType);
+          return next;
+        });
         updateResultStatus(i, 'completed', imageUrl);
         log(`Success: ${file.name} (${task.promptName}) generated. Tokens: ${usage.total} (In: ${usage.input}, Out: ${usage.output_image + usage.output_text})`, "success");
       } catch (err: any) {
@@ -357,7 +377,11 @@ const App: React.FC = () => {
 
   const handleClear = () => {
     setResults([]);
-    setTokenUsage({ total: 0, input: 0, output_image: 0, output_text: 0, images: 0 });
+    setTokenUsage(prev => {
+      const next = TokenUsage.fromJSON(prev.toJSON());
+      next.reset();
+      return next;
+    });
     const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
     setLogs([{ timestamp, message: "Workspace and Console cleared.", type: 'info' }]);
   };
@@ -426,7 +450,11 @@ const App: React.FC = () => {
                 value={selectedModel}
                 onChange={(e) => {
                   setSelectedModel(e.target.value);
-                  setTokenUsage({ total: 0, input: 0, output_image: 0, output_text: 0, images: 0 });
+                  setTokenUsage(prev => {
+                    const next = TokenUsage.fromJSON(prev.toJSON());
+                    next.reset();
+                    return next;
+                  });
                   log("Model changed. Token usage cleared.", "info");
                 }}
             >
@@ -508,56 +536,57 @@ const App: React.FC = () => {
                 <ImageIcon />
              </button>
              <div className="flex gap-4">
-                <div className="flex flex-col group relative">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold cursor-help">Input</span>
-                  <span className="text-sm font-mono text-blue-400">{tokenUsage.input.toLocaleString()}</span>
-                  
-                  {/* Tooltip */}
-                  <div className="absolute top-full left-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded p-2 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                    <div className="text-xs text-slate-400 mb-1">
-                      {selectedModel === 'gemini-2.5-flash-image' ? '$0.30 / 1M tokens' : '$2.00 / 1M tokens'}
-                    </div>
-                    <div className="text-xs font-mono text-green-400 font-bold">
-                      ${((tokenUsage.input / 1000000) * (selectedModel === 'gemini-2.5-flash-image' ? 0.3 : 2)).toFixed(6)}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-col group relative">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold cursor-help">Output</span>
-                  <span className="text-sm font-mono text-green-400">{(tokenUsage.output_image + tokenUsage.output_text).toLocaleString()} ({tokenUsage.images})</span>
+                {(() => {
+                  const costBreakdown = tokenUsage.getCostBreakdown(selectedModel as ModelType);
+                  return (
+                    <>
+                      <div className="flex flex-col group relative">
+                        <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold cursor-help">Input</span>
+                        <span className="text-sm font-mono text-blue-400">{tokenUsage.input.toLocaleString()}</span>
+                        
+                        {/* Tooltip */}
+                        <div className="absolute top-full left-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded p-2 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                          <div className="text-xs text-slate-400 mb-1">
+                            {selectedModel === 'gemini-2.5-flash-image' ? 'Flat rate per image' : '$2.00 / 1M tokens'}
+                          </div>
+                          <div className="text-xs font-mono text-green-400 font-bold">
+                            ${costBreakdown.inputCost.toFixed(6)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col group relative">
+                        <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold cursor-help">Output</span>
+                        <span className="text-sm font-mono text-green-400">{(tokenUsage.output_image + tokenUsage.output_text).toLocaleString()} ({tokenUsage.images})</span>
 
-                  {/* Tooltip */}
-                  <div className="absolute top-full left-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded p-2 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                    {selectedModel === 'gemini-2.5-flash-image' ? (
-                      <div className="text-xs text-slate-400 mb-1">$0.039 / image</div>
-                    ) : (
-                      <>
-                        <div className="text-xs text-slate-400 mb-1">$120.00 / 1M tokens (image)</div>
-                        <div className="text-xs text-slate-400 mb-1">$12.00 / 1M tokens (text)</div>
-                      </>
-                    )}
-                    <div className="text-xs font-mono text-green-400 font-bold">
-                      ${selectedModel === 'gemini-2.5-flash-image' 
-                        ? (tokenUsage.images * 0.039).toFixed(6)
-                        : (((tokenUsage.output_image / 1000000) * 120) + ((tokenUsage.output_text / 1000000) * 12)).toFixed(6)
-                      }
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-col group relative">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold cursor-help">Total</span>
-                  <span className="text-sm font-mono text-amber-400">{tokenUsage.total.toLocaleString()}</span>
+                        {/* Tooltip */}
+                        <div className="absolute top-full left-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded p-2 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                          {selectedModel === 'gemini-2.5-flash-image' ? (
+                            <div className="text-xs text-slate-400 mb-1">$0.039 / image</div>
+                          ) : (
+                            <>
+                              <div className="text-xs text-slate-400 mb-1">$120.00 / 1M tokens (image)</div>
+                              <div className="text-xs text-slate-400 mb-1">$12.00 / 1M tokens (text)</div>
+                            </>
+                          )}
+                          <div className="text-xs font-mono text-green-400 font-bold">
+                            ${costBreakdown.outputCost.toFixed(6)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col group relative">
+                        <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold cursor-help">Total</span>
+                        <span className="text-sm font-mono text-amber-400">{tokenUsage.total.toLocaleString()}</span>
 
-                  {/* Tooltip */}
-                  <div className="absolute top-full left-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded p-2 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                    <div className="text-xs font-mono text-amber-400 font-bold">
-                      ${selectedModel === 'gemini-2.5-flash-image'
-                        ? (((tokenUsage.input / 1000000) * 0.3) + (tokenUsage.images * 0.039)).toFixed(6)
-                        : (((tokenUsage.input / 1000000) * 2) + ((tokenUsage.output_image / 1000000) * 120) + ((tokenUsage.output_text / 1000000) * 12)).toFixed(6)
-                      }
-                    </div>
-                  </div>
-                </div>
+                        {/* Tooltip */}
+                        <div className="absolute top-full left-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded p-2 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                          <div className="text-xs font-mono text-amber-400 font-bold">
+                            ${costBreakdown.totalCost.toFixed(6)} / ${costBreakdown.historic_cost.toFixed(6)}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
              </div>
           </div>
           

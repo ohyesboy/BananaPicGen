@@ -1,7 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
 
-const MODEL_NAME = 'gemini-2.5-flash-image';
-
 export const generateImageFromReference = async (
   referenceImageBase64: string,
   mimeType: string,
