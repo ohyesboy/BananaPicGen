@@ -5,14 +5,15 @@ interface PromptItem {
   name: string;
   prompt: string;
   enabled: boolean;
+  skip_beforeafter_prompt: boolean;
 }
 
 interface PromptEditorProps {
-  prompts: Array<{ name: string; prompt: string; enabled: boolean }>;
+  prompts: Array<{ name: string; prompt: string; enabled: boolean; skip_beforeafter_prompt: boolean }>;
   promptBefore?: string;
   promptAfter?: string;
-  onSave: (prompts: Array<{ name: string; prompt: string; enabled: boolean }>, promptBefore: string, promptAfter: string) => void;
-  onChange?: (prompts: Array<{ name: string; prompt: string; enabled: boolean }>, promptBefore: string, promptAfter: string) => void;
+  onSave: (prompts: Array<{ name: string; prompt: string; enabled: boolean; skip_beforeafter_prompt: boolean }>, promptBefore: string, promptAfter: string) => void;
+  onChange?: (prompts: Array<{ name: string; prompt: string; enabled: boolean; skip_beforeafter_prompt: boolean }>, promptBefore: string, promptAfter: string) => void;
   isSaving?: boolean;
 }
 
@@ -76,7 +77,8 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
     const promptItems: PromptItem[] = prompts.map(p => ({
       name: p.name,
       prompt: p.prompt,
-      enabled: p.enabled
+      enabled: p.enabled,
+      skip_beforeafter_prompt: p.skip_beforeafter_prompt ?? false
     }));
 
     setItems(promptItems);
@@ -95,7 +97,8 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
     const promptsArray = currentItems.map(item => ({
       name: item.name,
       prompt: item.prompt,
-      enabled: item.enabled
+      enabled: item.enabled,
+      skip_beforeafter_prompt: item.skip_beforeafter_prompt
     }));
 
     console.log('[triggerSave] Final prompts to save:', promptsArray);
@@ -103,17 +106,35 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
     setHasChanges(false);
   }, [onSave]);
 
+  // Notify parent of changes when items or before/after text changes
+  useEffect(() => {
+    if (!onChange || !isInitialized.current) return;
+
+    // Mark this as a local change so we don't reset state when props update
+    isLocalChange.current = true;
+
+    // Convert items to prompts array
+    const promptsArray = items.map(item => ({
+      name: item.name,
+      prompt: item.prompt,
+      enabled: item.enabled,
+      skip_beforeafter_prompt: item.skip_beforeafter_prompt
+    }));
+
+    onChange(promptsArray, beforeText, afterText);
+  }, [items, beforeText, afterText, onChange]);
+
   // Auto-save logic: check every second if we have changes and no input for 5 seconds
   useEffect(() => {
     const intervalId = setInterval(() => {
       if (!itemsRef.current.length) return;
-      
+
       const hasUnsavedChanges = hasChanges;
       if (!hasUnsavedChanges) return;
-      
+
       const timeSinceLastInput = Date.now() - lastInputTime.current;
       console.log('[AutoSave] Checking, timeSinceLastInput:', timeSinceLastInput, 'hasChanges:', hasUnsavedChanges);
-      
+
       if (timeSinceLastInput >= 5000) {
         console.log('[AutoSave] Triggering save, items:', itemsRef.current);
         triggerSave();
@@ -122,23 +143,6 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
 
     return () => clearInterval(intervalId);
   }, [triggerSave, hasChanges]);
-
-  // Notify parent of changes immediately (for local state updates)
-  const notifyChange = useCallback((updatedItems: PromptItem[]) => {
-    if (!onChange) return;
-
-    // Mark this as a local change so we don't reset state when props update
-    isLocalChange.current = true;
-
-    // Convert items to prompts array
-    const promptsArray = updatedItems.map(item => ({
-      name: item.name,
-      prompt: item.prompt,
-      enabled: item.enabled
-    }));
-
-    onChange(promptsArray, beforeTextRef.current, afterTextRef.current);
-  }, [onChange]);
 
   const recordInput = () => {
     console.log('[recordInput] Recording input, setting hasChanges to true');
@@ -151,7 +155,6 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
     setItems(prev => {
       const next = [...prev];
       next[index] = { ...next[index], name };
-      notifyChange(next);
       return next;
     });
   };
@@ -161,7 +164,6 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
     setItems(prev => {
       const next = [...prev];
       next[index] = { ...next[index], prompt };
-      notifyChange(next);
       return next;
     });
   };
@@ -169,13 +171,11 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
   const handleBeforeTextChange = (text: string) => {
     recordInput();
     setBeforeText(text);
-    notifyChange(itemsRef.current);
   };
 
   const handleAfterTextChange = (text: string) => {
     recordInput();
     setAfterText(text);
-    notifyChange(itemsRef.current);
   };
 
   const handleSelectionChange = (index: number, enabled: boolean) => {
@@ -183,7 +183,15 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
     setItems(prev => {
       const next = [...prev];
       next[index] = { ...next[index], enabled };
-      notifyChange(next);
+      return next;
+    });
+  };
+
+  const handleSkipBeforeAfterChange = (index: number, skip: boolean) => {
+    recordInput();
+    setItems(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], skip_beforeafter_prompt: skip };
       return next;
     });
   };
@@ -191,8 +199,7 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
   const handleAddPrompt = () => {
     recordInput();
     setItems(prev => {
-      const next = [...prev, { name: '', prompt: '', enabled: false }];
-      notifyChange(next);
+      const next = [...prev, { name: '', prompt: '', enabled: false, skip_beforeafter_prompt: false }];
       return next;
     });
   };
@@ -201,7 +208,6 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
     recordInput();
     setItems(prev => {
       const next = prev.filter((_, i) => i !== index);
-      notifyChange(next);
       return next;
     });
   };
@@ -234,7 +240,6 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
       const next = [...prev];
       const [draggedItem] = next.splice(draggedIndex, 1);
       next.splice(index, 0, draggedItem);
-      notifyChange(next);
       return next;
     });
 
@@ -360,6 +365,19 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
               rows={3}
               className="w-full bg-slate-900 text-slate-300 text-xs px-2 py-1.5 rounded border border-slate-700 focus:border-amber-500 focus:outline-none resize-none"
             />
+
+            {/* Skip Before/After Checkbox */}
+            <div className="flex items-center gap-2 ml-6">
+              <input
+                type="checkbox"
+                checked={item.skip_beforeafter_prompt}
+                onChange={(e) => handleSkipBeforeAfterChange(index, e.target.checked)}
+                className="w-3 h-3 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 cursor-pointer"
+              />
+              <label className="text-xs text-slate-400 cursor-pointer" onClick={() => handleSkipBeforeAfterChange(index, !item.skip_beforeafter_prompt)}>
+                Skip before/after text
+              </label>
+            </div>
           </div>
         ))}
       </div>

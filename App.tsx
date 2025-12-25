@@ -120,7 +120,7 @@ const App: React.FC = () => {
   }, [user?.email]);
 
   // Save prompts to Firestore
-  const handleSavePrompts = useCallback(async (prompts: Array<{ name: string; prompt: string; enabled: boolean }>, promptBefore: string, promptAfter: string) => {
+  const handleSavePrompts = useCallback(async (prompts: Array<{ name: string; prompt: string; enabled: boolean; skip_beforeafter_prompt: boolean }>, promptBefore: string, promptAfter: string) => {
     if (!user?.email) return;
 
     console.log('[handleSavePrompts] Saving prompts:', prompts);
@@ -138,7 +138,7 @@ const App: React.FC = () => {
   }, [user?.email]);
 
   // Update local userDoc state immediately when prompts change (for RUN button to work)
-  const handlePromptsChange = useCallback((prompts: Array<{ name: string; prompt: string; enabled: boolean }>, promptBefore: string, promptAfter: string) => {
+  const handlePromptsChange = useCallback((prompts: Array<{ name: string; prompt: string; enabled: boolean; skip_beforeafter_prompt: boolean }>, promptBefore: string, promptAfter: string) => {
     setUserDoc(prev => prev ? { ...prev, prompts, prompt_before: promptBefore, prompt_after: promptAfter } : null);
   }, []);
 
@@ -319,11 +319,19 @@ const App: React.FC = () => {
 
     // 2. Build Task List from enabled prompts
     enabledPrompts.forEach(prompt => {
-      // Combine before + prompt + after
-      const beforeText = userDoc.prompt_before || '';
-      const afterText = userDoc.prompt_after || '';
+      // Combine before + prompt + after (unless skip_beforeafter_prompt is true)
       const basePrompt = prompt.prompt;
-      const fullPrompt = `${beforeText}${beforeText ? '\n' : ''}${basePrompt}${afterText ? '\n' : ''}${afterText}`.trim();
+      let fullPrompt: string;
+
+      if (prompt.skip_beforeafter_prompt) {
+        // Skip before/after text for this prompt
+        fullPrompt = basePrompt.trim();
+      } else {
+        // Include before/after text
+        const beforeText = userDoc.prompt_before || '';
+        const afterText = userDoc.prompt_after || '';
+        fullPrompt = `${beforeText}${beforeText ? '\n' : ''}${basePrompt}${afterText ? '\n' : ''}${afterText}`.trim();
+      }
 
       tasks.push({
         id: `${prompt.name}-${Date.now()}`,

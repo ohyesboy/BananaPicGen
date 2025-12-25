@@ -134,7 +134,7 @@ export const getAccessList = async (): Promise<string[]> => {
 export interface UserDocument {
   firstname: string;
   lastname: string;
-  prompts: Array<{ name: string; prompt: string; enabled: boolean }>;
+  prompts: Array<{ name: string; prompt: string; enabled: boolean; skip_beforeafter_prompt: boolean }>;
   prompt_before?: string;   // Text to add before each prompt
   prompt_after?: string;    // Text to add after each prompt
   historic_cost?: number;   // Total accumulated cost across all sessions
