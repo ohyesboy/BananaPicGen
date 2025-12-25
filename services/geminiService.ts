@@ -1,8 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
 export const generateImageFromReference = async (
-  referenceImageBase64: string,
-  mimeType: string,
+  inputFiles: File[],
   promptText: string,
   aspectRatio: string = "4:5",
   imageSize: string = "2K",
@@ -15,6 +14,17 @@ export const generateImageFromReference = async (
     const apiKey = window.env?.API_KEY || process.env.API_KEY;
     const ai = new GoogleGenAI({ apiKey });
 
+    const inlineDataArray = [];
+    for (const file of inputFiles) {
+      const base64Data = await fileToBase64(file);
+      inlineDataArray.push({
+        inlineData: {
+          mimeType: file.type,
+          data: base64Data
+        }
+      });
+    }
+    
     const response = await ai.models.generateContent({
       model: modelName,
       contents: {
@@ -22,12 +32,7 @@ export const generateImageFromReference = async (
           {
             text: promptText,
           },
-          {
-            inlineData: {
-              mimeType: mimeType,
-              data: referenceImageBase64,
-            },
-          },
+          ...inlineDataArray,
         ],
       },
       // gemini-2.5-flash-image configuration

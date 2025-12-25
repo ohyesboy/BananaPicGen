@@ -5,7 +5,7 @@ export interface AppConfig {
 
 export interface ProcessingResult {
   id: string;
-  originalFileName: string;
+  files: File[];
   promptName: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   imageUrl?: string;
