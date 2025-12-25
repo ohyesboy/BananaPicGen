@@ -4,24 +4,20 @@ import { Plus, Trash2, Loader2, Check, GripVertical } from 'lucide-react';
 interface PromptItem {
   name: string;
   prompt: string;
-  selected: boolean;
+  enabled: boolean;
 }
 
 interface PromptEditorProps {
-  prompts: Record<string, string>;
-  selectedPrompts: string;
-  promptOrder?: string[];
+  prompts: Array<{ name: string; prompt: string; enabled: boolean }>;
   promptBefore?: string;
   promptAfter?: string;
-  onSave: (prompts: Record<string, string>, selectedPrompts: string, promptOrder: string[], promptBefore: string, promptAfter: string) => void;
-  onChange?: (prompts: Record<string, string>, selectedPrompts: string, promptOrder: string[], promptBefore: string, promptAfter: string) => void;
+  onSave: (prompts: Array<{ name: string; prompt: string; enabled: boolean }>, promptBefore: string, promptAfter: string) => void;
+  onChange?: (prompts: Array<{ name: string; prompt: string; enabled: boolean }>, promptBefore: string, promptAfter: string) => void;
   isSaving?: boolean;
 }
 
 export const PromptEditor: React.FC<PromptEditorProps> = ({
   prompts,
-  selectedPrompts,
-  promptOrder,
   promptBefore = '',
   promptAfter = '',
   onSave,
@@ -70,37 +66,23 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
       isLocalChange.current = false;
       return;
     }
-    
+
     // Skip re-initialization after first load - local state is source of truth
     if (isInitialized.current) {
       return;
     }
-    
-    const selectedSet = new Set(selectedPrompts.split(',').map(s => s.trim()).filter(Boolean));
-    
-    // Use promptOrder if available, otherwise fall back to Object.keys
-    const orderedKeys = promptOrder && promptOrder.length > 0 
-      ? promptOrder.filter(key => key in prompts)
-      : Object.keys(prompts);
-    
-    // Add any keys that exist in prompts but not in order (for backwards compatibility)
-    const allKeys = new Set(orderedKeys);
-    Object.keys(prompts).forEach(key => {
-      if (!allKeys.has(key)) {
-        orderedKeys.push(key);
-      }
-    });
-    
-    const promptItems: PromptItem[] = orderedKeys.map(name => ({
-      // Convert __empty_X keys back to empty names
-      name: name.startsWith('__empty_') ? '' : name,
-      prompt: prompts[name] as string,
-      selected: selectedSet.has(name)
+
+    // Convert prompts array to PromptItem array
+    const promptItems: PromptItem[] = prompts.map(p => ({
+      name: p.name,
+      prompt: p.prompt,
+      enabled: p.enabled
     }));
+
     setItems(promptItems);
     setHasChanges(false);
     isInitialized.current = true;
-  }, [prompts, selectedPrompts, promptOrder]);
+  }, [prompts]);
 
   // Trigger save function using ref to get latest items
   const triggerSave = useCallback(() => {
@@ -109,24 +91,15 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
     const currentAfter = afterTextRef.current;
     console.log('[triggerSave] Saving items:', currentItems);
 
-    // Build prompts object, selected string, and order array
-    const newPrompts: Record<string, string> = {};
-    const selectedNames: string[] = [];
-    const order: string[] = [];
+    // Convert items to prompts array
+    const promptsArray = currentItems.map(item => ({
+      name: item.name,
+      prompt: item.prompt,
+      enabled: item.enabled
+    }));
 
-    currentItems.forEach(item => {
-      if (item.name.trim()) {
-        const trimmedName = item.name.trim();
-        newPrompts[trimmedName] = item.prompt;
-        order.push(trimmedName);
-        if (item.selected) {
-          selectedNames.push(trimmedName);
-        }
-      }
-    });
-
-    console.log('[triggerSave] Final prompts to save:', newPrompts, 'order:', order);
-    onSave(newPrompts, selectedNames.join(','), order, currentBefore, currentAfter);
+    console.log('[triggerSave] Final prompts to save:', promptsArray);
+    onSave(promptsArray, currentBefore, currentAfter);
     setHasChanges(false);
   }, [onSave]);
 
@@ -151,28 +124,20 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
   }, [triggerSave, hasChanges]);
 
   // Notify parent of changes immediately (for local state updates)
-  // Include ALL items, even empty ones, to keep parent in sync with local state
   const notifyChange = useCallback((updatedItems: PromptItem[]) => {
     if (!onChange) return;
 
     // Mark this as a local change so we don't reset state when props update
     isLocalChange.current = true;
 
-    const newPrompts: Record<string, string> = {};
-    const selectedNames: string[] = [];
-    const order: string[] = [];
+    // Convert items to prompts array
+    const promptsArray = updatedItems.map(item => ({
+      name: item.name,
+      prompt: item.prompt,
+      enabled: item.enabled
+    }));
 
-    updatedItems.forEach((item, index) => {
-      // Use index-based key for empty names to preserve them in parent state
-      const key = item.name.trim() || `__empty_${index}`;
-      newPrompts[key] = item.prompt;
-      order.push(key);
-      if (item.selected && item.name.trim()) {
-        selectedNames.push(item.name.trim());
-      }
-    });
-
-    onChange(newPrompts, selectedNames.join(','), order, beforeTextRef.current, afterTextRef.current);
+    onChange(promptsArray, beforeTextRef.current, afterTextRef.current);
   }, [onChange]);
 
   const recordInput = () => {
@@ -213,11 +178,11 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
     notifyChange(itemsRef.current);
   };
 
-  const handleSelectionChange = (index: number, selected: boolean) => {
+  const handleSelectionChange = (index: number, enabled: boolean) => {
     recordInput();
     setItems(prev => {
       const next = [...prev];
-      next[index] = { ...next[index], selected };
+      next[index] = { ...next[index], enabled };
       notifyChange(next);
       return next;
     });
@@ -226,7 +191,7 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
   const handleAddPrompt = () => {
     recordInput();
     setItems(prev => {
-      const next = [...prev, { name: '', prompt: '', selected: false }];
+      const next = [...prev, { name: '', prompt: '', enabled: false }];
       notifyChange(next);
       return next;
     });
@@ -364,7 +329,7 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
               {/* Checkbox */}
               <input
                 type="checkbox"
-                checked={item.selected}
+                checked={item.enabled}
                 onChange={(e) => handleSelectionChange(index, e.target.checked)}
                 className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 cursor-pointer"
               />

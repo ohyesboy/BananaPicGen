@@ -134,9 +134,7 @@ export const getAccessList = async (): Promise<string[]> => {
 export interface UserDocument {
   firstname: string;
   lastname: string;
-  prompts: Record<string, string>;
-  selected_prompts: string;
-  prompt_order?: string[];  // Order of prompt names for consistent display
+  prompts: Array<{ name: string; prompt: string; enabled: boolean }>;
   prompt_before?: string;   // Text to add before each prompt
   prompt_after?: string;    // Text to add after each prompt
   historic_cost?: number;   // Total accumulated cost across all sessions
@@ -146,25 +144,23 @@ export interface UserDocument {
 // Get or create user document
 export const getUserDocument = async (email: string): Promise<UserDocument> => {
   if (!db) throw new Error("Firestore not configured");
-  
+
   const docRef = doc(db, "users", email);
   const docSnap = await getDoc(docRef);
-  
+
   if (docSnap.exists()) {
     return docSnap.data() as UserDocument;
   }
-  
+
   // Create new user document with default values
   const newUserDoc: UserDocument = {
     firstname: "",
     lastname: "",
-    prompts: {},
-    selected_prompts: "",
-    prompt_order: [],
+    prompts: [],
     historic_cost: 0,
     historic_images: 0
   };
-  
+
   await setDoc(docRef, newUserDoc);
   return newUserDoc;
 };

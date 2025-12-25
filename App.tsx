@@ -120,14 +120,14 @@ const App: React.FC = () => {
   }, [user?.email]);
 
   // Save prompts to Firestore
-  const handleSavePrompts = useCallback(async (prompts: Record<string, string>, selectedPrompts: string, promptOrder: string[], promptBefore: string, promptAfter: string) => {
+  const handleSavePrompts = useCallback(async (prompts: Array<{ name: string; prompt: string; enabled: boolean }>, promptBefore: string, promptAfter: string) => {
     if (!user?.email) return;
 
-    console.log('[handleSavePrompts] Saving with order:', promptOrder);
+    console.log('[handleSavePrompts] Saving prompts:', prompts);
     setIsSavingUserDoc(true);
     try {
-      await updateUserDocument(user.email, { prompts, selected_prompts: selectedPrompts, prompt_order: promptOrder, prompt_before: promptBefore, prompt_after: promptAfter });
-      setUserDoc(prev => prev ? { ...prev, prompts, selected_prompts: selectedPrompts, prompt_order: promptOrder, prompt_before: promptBefore, prompt_after: promptAfter } : null);
+      await updateUserDocument(user.email, { prompts, prompt_before: promptBefore, prompt_after: promptAfter });
+      setUserDoc(prev => prev ? { ...prev, prompts, prompt_before: promptBefore, prompt_after: promptAfter } : null);
       log("Prompts saved to cloud.", "success");
     } catch (error) {
       console.error("Error saving prompts", error);
@@ -138,8 +138,8 @@ const App: React.FC = () => {
   }, [user?.email]);
 
   // Update local userDoc state immediately when prompts change (for RUN button to work)
-  const handlePromptsChange = useCallback((prompts: Record<string, string>, selectedPrompts: string, promptOrder: string[], promptBefore: string, promptAfter: string) => {
-    setUserDoc(prev => prev ? { ...prev, prompts, selected_prompts: selectedPrompts, prompt_order: promptOrder, prompt_before: promptBefore, prompt_after: promptAfter } : null);
+  const handlePromptsChange = useCallback((prompts: Array<{ name: string; prompt: string; enabled: boolean }>, promptBefore: string, promptAfter: string) => {
+    setUserDoc(prev => prev ? { ...prev, prompts, prompt_before: promptBefore, prompt_after: promptAfter } : null);
   }, []);
 
   useEffect(() => {
@@ -280,10 +280,18 @@ const App: React.FC = () => {
   };
 
   const handleProcess = async () => {
-    if (!userDoc || !userDoc.selected_prompts) {
+    if (!userDoc || !userDoc.prompts || userDoc.prompts.length === 0) {
+      log("Error: No prompts configured.", "error");
+      return;
+    }
+
+    // Get enabled prompts
+    const enabledPrompts = userDoc.prompts.filter(p => p.enabled && p.name.trim());
+    if (enabledPrompts.length === 0) {
       log("Error: No prompts selected.", "error");
       return;
     }
+
     if (selectedFiles.length === 0) {
       log("Error: No files selected.", "error");
       return;
@@ -307,36 +315,23 @@ const App: React.FC = () => {
 
     log(`Starting batch for ${filesToProcess.length} files...`, "info");
 
-    // 2. Get selected prompts from user document
-    const promptNames = userDoc.selected_prompts.split(',').map(s => s.trim()).filter(Boolean);
-    if (promptNames.length === 0) {
-      log("No prompts selected. Please check at least one prompt.", "error");
-      setIsProcessing(false);
-      return;
-    }
-
     const tasks: ProcessingResult[] = [];
 
-    // 3. Build Task List
+    // 2. Build Task List from enabled prompts
+    enabledPrompts.forEach(prompt => {
+      // Combine before + prompt + after
+      const beforeText = userDoc.prompt_before || '';
+      const afterText = userDoc.prompt_after || '';
+      const basePrompt = prompt.prompt;
+      const fullPrompt = `${beforeText}${beforeText ? '\n' : ''}${basePrompt}${afterText ? '\n' : ''}${afterText}`.trim();
 
-    promptNames.forEach(pName => {
-      if (userDoc.prompts[pName]) {
-        // Combine before + prompt + after
-        const beforeText = userDoc.prompt_before || '';
-        const afterText = userDoc.prompt_after || '';
-        const basePrompt = userDoc.prompts[pName];
-        const fullPrompt = `${beforeText}${beforeText ? '\n' : ''}${basePrompt}${afterText ? '\n' : ''}${afterText}`.trim();
-
-        tasks.push({
-          id: `${pName}-${Date.now()}`,
-          files: filesToProcess,
-          promptName: pName,
-          promptText: fullPrompt,
-          status: 'pending'
-        });
-      } else {
-        log(`Warning: Prompt "${pName}" not found.`, "warning");
-      }
+      tasks.push({
+        id: `${prompt.name}-${Date.now()}`,
+        files: filesToProcess,
+        promptName: prompt.name,
+        promptText: fullPrompt,
+        status: 'pending'
+      });
     });
 
 
@@ -497,8 +492,6 @@ const App: React.FC = () => {
           ) : userDoc ? (
             <PromptEditor
               prompts={userDoc.prompts}
-              selectedPrompts={userDoc.selected_prompts}
-              promptOrder={userDoc.prompt_order}
               promptBefore={userDoc.prompt_before}
               promptAfter={userDoc.prompt_after}
               onSave={handleSavePrompts}
@@ -696,8 +689,8 @@ const App: React.FC = () => {
           {/* Run Button */}
           <button
             onClick={handleProcess}
-            disabled={isProcessing || !hasKey || selectedFiles.length === 0 || !userDoc?.selected_prompts}
-            className={`px-6 py-2.5 rounded font-bold flex items-center gap-2 transition ${isProcessing || !hasKey || selectedFiles.length === 0 || !userDoc?.selected_prompts
+            disabled={isProcessing || !hasKey || selectedFiles.length === 0 || !userDoc?.prompts?.some(p => p.enabled)}
+            className={`px-6 py-2.5 rounded font-bold flex items-center gap-2 transition ${isProcessing || !hasKey || selectedFiles.length === 0 || !userDoc?.prompts?.some(p => p.enabled)
               ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
               : 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/20'
               }`}
