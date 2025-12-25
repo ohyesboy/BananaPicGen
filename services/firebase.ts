@@ -137,6 +137,8 @@ export interface UserDocument {
   prompts: Record<string, string>;
   selected_prompts: string;
   prompt_order?: string[];  // Order of prompt names for consistent display
+  prompt_before?: string;   // Text to add before each prompt
+  prompt_after?: string;    // Text to add after each prompt
   historic_cost?: number;   // Total accumulated cost across all sessions
   historic_images?: number; // Total accumulated images across all sessions
 }

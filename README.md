@@ -1,6 +1,6 @@
 ## Features
 
-* Support Nano Banana 2 and 3 
+* Support Nano Banana Pro(gemini-3-pro-image-preview) and Nano Banana(gemini-2.5-flash-image)
 
 * Select reference picture (multiple can be selected, each one will be used to generated once for the combo)
 

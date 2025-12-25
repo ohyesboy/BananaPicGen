@@ -11,33 +11,57 @@ interface PromptEditorProps {
   prompts: Record<string, string>;
   selectedPrompts: string;
   promptOrder?: string[];
-  onSave: (prompts: Record<string, string>, selectedPrompts: string, promptOrder: string[]) => void;
-  onChange?: (prompts: Record<string, string>, selectedPrompts: string, promptOrder: string[]) => void;
+  promptBefore?: string;
+  promptAfter?: string;
+  onSave: (prompts: Record<string, string>, selectedPrompts: string, promptOrder: string[], promptBefore: string, promptAfter: string) => void;
+  onChange?: (prompts: Record<string, string>, selectedPrompts: string, promptOrder: string[], promptBefore: string, promptAfter: string) => void;
   isSaving?: boolean;
 }
 
-export const PromptEditor: React.FC<PromptEditorProps> = ({ 
-  prompts, 
+export const PromptEditor: React.FC<PromptEditorProps> = ({
+  prompts,
   selectedPrompts,
   promptOrder,
+  promptBefore = '',
+  promptAfter = '',
   onSave,
   onChange,
   isSaving = false
 }) => {
   const [items, setItems] = useState<PromptItem[]>([]);
+  const [beforeText, setBeforeText] = useState(promptBefore);
+  const [afterText, setAfterText] = useState(promptAfter);
   const [hasChanges, setHasChanges] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const lastInputTime = useRef<number>(Date.now());
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const itemsRef = useRef<PromptItem[]>([]);
+  const beforeTextRef = useRef<string>(promptBefore);
+  const afterTextRef = useRef<string>(promptAfter);
   const isLocalChange = useRef(false);
   const isInitialized = useRef(false);
 
-  // Keep itemsRef in sync with items
+  // Keep refs in sync
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
+
+  useEffect(() => {
+    beforeTextRef.current = beforeText;
+  }, [beforeText]);
+
+  useEffect(() => {
+    afterTextRef.current = afterText;
+  }, [afterText]);
+
+  // Sync beforeText and afterText from props
+  useEffect(() => {
+    if (!isLocalChange.current) {
+      setBeforeText(promptBefore);
+      setAfterText(promptAfter);
+    }
+  }, [promptBefore, promptAfter]);
 
   // Initialize items from props (only on first load or external changes)
   useEffect(() => {
@@ -81,8 +105,10 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
   // Trigger save function using ref to get latest items
   const triggerSave = useCallback(() => {
     const currentItems = itemsRef.current;
+    const currentBefore = beforeTextRef.current;
+    const currentAfter = afterTextRef.current;
     console.log('[triggerSave] Saving items:', currentItems);
-    
+
     // Build prompts object, selected string, and order array
     const newPrompts: Record<string, string> = {};
     const selectedNames: string[] = [];
@@ -100,7 +126,7 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
     });
 
     console.log('[triggerSave] Final prompts to save:', newPrompts, 'order:', order);
-    onSave(newPrompts, selectedNames.join(','), order);
+    onSave(newPrompts, selectedNames.join(','), order, currentBefore, currentAfter);
     setHasChanges(false);
   }, [onSave]);
 
@@ -128,10 +154,10 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
   // Include ALL items, even empty ones, to keep parent in sync with local state
   const notifyChange = useCallback((updatedItems: PromptItem[]) => {
     if (!onChange) return;
-    
+
     // Mark this as a local change so we don't reset state when props update
     isLocalChange.current = true;
-    
+
     const newPrompts: Record<string, string> = {};
     const selectedNames: string[] = [];
     const order: string[] = [];
@@ -146,7 +172,7 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
       }
     });
 
-    onChange(newPrompts, selectedNames.join(','), order);
+    onChange(newPrompts, selectedNames.join(','), order, beforeTextRef.current, afterTextRef.current);
   }, [onChange]);
 
   const recordInput = () => {
@@ -173,6 +199,18 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
       notifyChange(next);
       return next;
     });
+  };
+
+  const handleBeforeTextChange = (text: string) => {
+    recordInput();
+    setBeforeText(text);
+    notifyChange(itemsRef.current);
+  };
+
+  const handleAfterTextChange = (text: string) => {
+    recordInput();
+    setAfterText(text);
+    notifyChange(itemsRef.current);
   };
 
   const handleSelectionChange = (index: number, selected: boolean) => {
@@ -259,7 +297,7 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
             <Check size={14} className="text-green-400" />
           )}
         </div>
-        <button 
+        <button
           onClick={handleAddPrompt}
           className="p-1.5 text-green-400 hover:text-green-300 hover:bg-slate-700 rounded transition flex items-center gap-1 text-sm font-medium"
         >
@@ -267,7 +305,31 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
           Add
         </button>
       </div>
-      
+
+      {/* Before/After Prompt Textboxes */}
+      <div className="space-y-2 mb-4">
+        <div>
+          <label className="block text-xs text-slate-400 mb-1">Before each prompt</label>
+          <textarea
+            value={beforeText}
+            onChange={(e) => handleBeforeTextChange(e.target.value)}
+            placeholder="Text to add before each prompt..."
+            rows={2}
+            className="w-full bg-slate-950 text-slate-300 text-xs px-2 py-1.5 rounded border border-slate-700 focus:border-amber-500 focus:outline-none resize-none"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-400 mb-1">After each prompt</label>
+          <textarea
+            value={afterText}
+            onChange={(e) => handleAfterTextChange(e.target.value)}
+            placeholder="Text to add after each prompt..."
+            rows={2}
+            className="w-full bg-slate-950 text-slate-300 text-xs px-2 py-1.5 rounded border border-slate-700 focus:border-amber-500 focus:outline-none resize-none"
+          />
+        </div>
+      </div>
+
       <div className="flex-1 overflow-y-auto space-y-3">
         {items.length === 0 && (
           <div className="text-center text-slate-500 py-8">

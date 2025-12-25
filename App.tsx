@@ -15,8 +15,8 @@ const STORAGE_KEY_TOKEN_USAGE = 'banana_pic_gen_token_usage';
 const STORAGE_KEY_TEMPERATURE = 'banana_pic_gen_temperature';
 
 const MODEL_OPTIONS = [
-  { label: "Nano Banana 3 Pro", value: "gemini-3-pro-image-preview" },
-  { label: "Nano Banana 2", value: "gemini-2.5-flash-image" }
+  { label: "Nano Banana Pro", value: "gemini-3-pro-image-preview" },
+  { label: "Nano Banana", value: "gemini-2.5-flash-image" }
 ];
 
 // Helper to get user photo URL with Facebook fallback
@@ -120,14 +120,14 @@ const App: React.FC = () => {
   }, [user?.email]);
 
   // Save prompts to Firestore
-  const handleSavePrompts = useCallback(async (prompts: Record<string, string>, selectedPrompts: string, promptOrder: string[]) => {
+  const handleSavePrompts = useCallback(async (prompts: Record<string, string>, selectedPrompts: string, promptOrder: string[], promptBefore: string, promptAfter: string) => {
     if (!user?.email) return;
 
     console.log('[handleSavePrompts] Saving with order:', promptOrder);
     setIsSavingUserDoc(true);
     try {
-      await updateUserDocument(user.email, { prompts, selected_prompts: selectedPrompts, prompt_order: promptOrder });
-      setUserDoc(prev => prev ? { ...prev, prompts, selected_prompts: selectedPrompts, prompt_order: promptOrder } : null);
+      await updateUserDocument(user.email, { prompts, selected_prompts: selectedPrompts, prompt_order: promptOrder, prompt_before: promptBefore, prompt_after: promptAfter });
+      setUserDoc(prev => prev ? { ...prev, prompts, selected_prompts: selectedPrompts, prompt_order: promptOrder, prompt_before: promptBefore, prompt_after: promptAfter } : null);
       log("Prompts saved to cloud.", "success");
     } catch (error) {
       console.error("Error saving prompts", error);
@@ -138,8 +138,8 @@ const App: React.FC = () => {
   }, [user?.email]);
 
   // Update local userDoc state immediately when prompts change (for RUN button to work)
-  const handlePromptsChange = useCallback((prompts: Record<string, string>, selectedPrompts: string, promptOrder: string[]) => {
-    setUserDoc(prev => prev ? { ...prev, prompts, selected_prompts: selectedPrompts, prompt_order: promptOrder } : null);
+  const handlePromptsChange = useCallback((prompts: Record<string, string>, selectedPrompts: string, promptOrder: string[], promptBefore: string, promptAfter: string) => {
+    setUserDoc(prev => prev ? { ...prev, prompts, selected_prompts: selectedPrompts, prompt_order: promptOrder, prompt_before: promptBefore, prompt_after: promptAfter } : null);
   }, []);
 
   useEffect(() => {
@@ -321,12 +321,17 @@ const App: React.FC = () => {
 
     promptNames.forEach(pName => {
       if (userDoc.prompts[pName]) {
-        const filenames = filesToProcess.map(f => f.name);
+        // Combine before + prompt + after
+        const beforeText = userDoc.prompt_before || '';
+        const afterText = userDoc.prompt_after || '';
+        const basePrompt = userDoc.prompts[pName];
+        const fullPrompt = `${beforeText}${beforeText ? '\n' : ''}${basePrompt}${afterText ? '\n' : ''}${afterText}`.trim();
+
         tasks.push({
           id: `${pName}-${Date.now()}`,
           files: filesToProcess,
-
           promptName: pName,
+          promptText: fullPrompt,
           status: 'pending'
         });
       } else {
@@ -342,10 +347,6 @@ const App: React.FC = () => {
     for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i];
 
-      const promptText = userDoc.prompts[task.promptName];
-
-      if (!promptText) continue;
-
       // Update status to processing
       updateResultStatus(i, 'processing');
       log(`Processing [${i + 1}/${tasks.length}]:  ${task.promptName}`, "info");
@@ -353,7 +354,7 @@ const App: React.FC = () => {
 
         const { imageUrl, usage } = await generateImageFromReference(
           task.files,
-          promptText,
+          task.promptText,
           selectedAspectRatio,
           selectedImageSize,
           selectedModel,
@@ -498,6 +499,8 @@ const App: React.FC = () => {
               prompts={userDoc.prompts}
               selectedPrompts={userDoc.selected_prompts}
               promptOrder={userDoc.prompt_order}
+              promptBefore={userDoc.prompt_before}
+              promptAfter={userDoc.prompt_after}
               onSave={handleSavePrompts}
               onChange={handlePromptsChange}
               isSaving={isSavingUserDoc}

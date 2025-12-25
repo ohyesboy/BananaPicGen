@@ -7,6 +7,7 @@ export interface ProcessingResult {
   id: string;
   files: File[];
   promptName: string;
+  promptText: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   imageUrl?: string;
   error?: string;
